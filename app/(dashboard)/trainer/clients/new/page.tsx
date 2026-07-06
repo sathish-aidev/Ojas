@@ -12,6 +12,7 @@ export default async function NewTrainerClientPage() {
       <AddClientWithPTForm
         defaultTrainerId={user.employeeId}
         redirectTo="/trainer/clients"
+        alwaysOpen
       />
     </div>
   );

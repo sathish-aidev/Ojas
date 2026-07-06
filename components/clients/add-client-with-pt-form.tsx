@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CollapsibleFormCard } from "@/components/ui/collapsible-form-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { readApiError } from "@/lib/fetch-api";
 import { addMonthsToDate } from "@/lib/utils";
@@ -26,6 +27,8 @@ type AddClientWithPTFormProps = {
   title?: string;
   submitLabel?: string;
   showSuccessOnDashboard?: boolean;
+  /** When true, form is always visible (dedicated new-client page). */
+  alwaysOpen?: boolean;
 };
 
 export function AddClientWithPTForm({
@@ -35,6 +38,7 @@ export function AddClientWithPTForm({
   title = "Add Client & PT Payment",
   submitLabel = "Add Client & PT Package",
   showSuccessOnDashboard = false,
+  alwaysOpen = false,
 }: AddClientWithPTFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -106,13 +110,8 @@ export function AddClientWithPTForm({
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+  const formBody = (
+    <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="client-name">Client Name *</Label>
             <Input id="client-name" name="name" required className="min-h-11" />
@@ -262,7 +261,18 @@ export function AddClientWithPTForm({
             {loading ? "Saving..." : submitLabel}
           </Button>
         </form>
-      </CardContent>
+  );
+
+  return alwaysOpen ? (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>{formBody}</CardContent>
     </Card>
+  ) : (
+    <CollapsibleFormCard title={title} buttonLabel="Add Client">
+      {formBody}
+    </CollapsibleFormCard>
   );
 }

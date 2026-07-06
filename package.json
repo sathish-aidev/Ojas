@@ -18,6 +18,7 @@
     "test:monthly-report": "tsx scripts/test-monthly-report.ts",
     "test:split-rules-api": "tsx scripts/test-split-rules-api.ts",
     "import:clients": "tsx scripts/import-clients-csv.ts",
+    "import:all-clients": "tsx scripts/import-all-clients.ts",
     "setup:import-trainers": "tsx scripts/setup-trainers-for-import.ts",
     "recalculate:trainer-splits": "tsx scripts/recalculate-trainer-splits.ts",
     "migrate:split-rules": "tsx scripts/migrate-split-rules.ts",

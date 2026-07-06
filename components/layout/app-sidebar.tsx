@@ -56,8 +56,8 @@ export function AppSidebar({ role }: { role?: UserRole }) {
   const items = getNavItems(role);
 
   return (
-    <aside className="w-full shrink-0 md:w-56">
-      <nav className="flex gap-2 overflow-x-auto rounded-xl border bg-card p-2 md:flex-col md:overflow-visible">
+    <aside className="hidden w-56 shrink-0 md:block">
+      <nav className="flex flex-col gap-1 rounded-xl border bg-card p-2">
         {items.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href || pathname.startsWith(item.href + "/");

@@ -3,12 +3,11 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Dumbbell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { APP_NAME } from "@/lib/app-config";
+import { AppLogo } from "@/components/layout/app-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,13 +39,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+    <div
+      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 p-4"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Dumbbell className="h-7 w-7" />
-          </div>
-          <CardTitle>{APP_NAME}</CardTitle>
+        <CardHeader className="items-center text-center">
+          <AppLogo size="lg" className="mb-2 justify-center" />
+          <CardTitle className="sr-only">Sign in</CardTitle>
           <CardDescription>Sign in to manage personal training</CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,10 +56,13 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="owner@gym.com"
                 required
+                className="min-h-11"
               />
             </div>
             <div className="space-y-2">
@@ -67,19 +70,18 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="min-h-11"
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="min-h-11 w-full" size="lg" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo: owner@impackt.gym / password123
-          </p>
         </CardContent>
       </Card>
     </div>

@@ -18,6 +18,7 @@ export default async function NewOwnerClientPage() {
       <AddClientWithPTForm
         trainers={trainers.map((t) => ({ id: t.id, name: t.user.name }))}
         redirectTo="/owner/clients"
+        alwaysOpen
       />
     </div>
   );

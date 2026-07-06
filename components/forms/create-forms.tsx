@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CollapsibleFormCard } from "@/components/ui/collapsible-form-card";
 import { readApiError } from "@/lib/fetch-api";
 
 type TrainerOption = { id: string; name: string };
@@ -53,11 +53,7 @@ export function CreateUserForm() {
   const [role, setRole] = useState("TRAINER");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Add Team Member</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="Add Team Member" buttonLabel="Add Member">
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -136,12 +132,11 @@ export function CreateUserForm() {
           )}
           {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
           {success && <p className="text-sm text-green-600 sm:col-span-2">{success}</p>}
-          <Button type="submit" disabled={loading} className="sm:col-span-2">
+          <Button type="submit" disabled={loading} className="min-h-11 sm:col-span-2">
             {loading ? "Creating..." : "Create Account"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }
 
@@ -187,11 +182,7 @@ export function CreateClientForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">New Client</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="New Client" buttonLabel="Add Client" defaultOpen>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
@@ -239,7 +230,6 @@ export function CreateClientForm({
             {loading ? "Saving..." : "Create Client"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }

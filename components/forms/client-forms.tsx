@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CollapsibleFormCard } from "@/components/ui/collapsible-form-card";
 import { readApiError } from "@/lib/fetch-api";
 import { addMonthsToDate } from "@/lib/utils";
 
@@ -56,11 +56,7 @@ export function AddSubscriptionForm({ clientId }: { clientId: string }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Log PT Payment</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="Log PT Payment" buttonLabel="Log Payment">
         <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Amount Paid (₹)</Label>
@@ -139,12 +135,11 @@ export function AddSubscriptionForm({ clientId }: { clientId: string }) {
             <Textarea name="notes" rows={2} />
           </div>
           {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
-          <Button type="submit" disabled={loading} className="sm:col-span-2 min-h-11">
+          <Button type="submit" disabled={loading} className="min-h-11 sm:col-span-2">
             {loading ? "Saving..." : "Save Payment & Subscription"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }
 
@@ -176,11 +171,7 @@ export function AddSessionForm({ clientId }: { clientId: string }) {
   const today = new Date().toISOString().split("T")[0];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Schedule / Log Session</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="Schedule / Log Session" buttonLabel="Add Session">
         <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Date</Label>
@@ -207,12 +198,11 @@ export function AddSessionForm({ clientId }: { clientId: string }) {
             <Label>Notes</Label>
             <Textarea name="notes" rows={2} />
           </div>
-          <Button type="submit" disabled={loading} className="sm:col-span-2 min-h-11">
+          <Button type="submit" disabled={loading} className="min-h-11 sm:col-span-2">
             {loading ? "Saving..." : "Save Session"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }
 
@@ -230,18 +220,14 @@ export function ProgressForms({ clientId }: { clientId: string }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Track Progress</CardTitle>
-        <div className="flex flex-wrap gap-2">
+    <CollapsibleFormCard title="Track Progress" buttonLabel="Track Progress">
+        <div className="mb-4 flex flex-wrap gap-2">
           {(["note", "goal", "measurement", "diet"] as const).map((t) => (
-            <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => setTab(t)}>
+            <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => setTab(t)} className="min-h-10">
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </Button>
           ))}
         </div>
-      </CardHeader>
-      <CardContent>
         {tab === "note" && (
           <form
             onSubmit={(e) => {
@@ -347,8 +333,7 @@ export function ProgressForms({ clientId }: { clientId: string }) {
             <Button type="submit" className="min-h-11">Save Diet Program</Button>
           </form>
         )}
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }
 
@@ -369,19 +354,14 @@ export function PhotoUploadForm({ clientId }: { clientId: string }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Progress Photo (Optional)</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="Progress Photo (Optional)" buttonLabel="Add Photo">
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input name="file" type="file" accept="image/*" required className="min-h-11" />
           <Input name="caption" placeholder="Caption" className="min-h-11" />
-          <Button type="submit" disabled={loading} variant="outline" className="min-h-11">
+          <Button type="submit" disabled={loading} variant="outline" className="min-h-11 w-full sm:w-auto">
             {loading ? "Uploading..." : "Upload Photo"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }

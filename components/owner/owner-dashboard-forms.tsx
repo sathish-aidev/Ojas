@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CollapsibleFormCard } from "@/components/ui/collapsible-form-card";
 import { Badge } from "@/components/ui/badge";
 import { Pencil } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -77,11 +78,7 @@ export function AddTrainerForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Add Trainer</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <CollapsibleFormCard title="Add Trainer" buttonLabel="Add Trainer">
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="trainer-name">Trainer Name *</Label>
@@ -149,12 +146,11 @@ export function AddTrainerForm() {
           </div>
           {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
           {success && <p className="text-sm text-emerald-600 sm:col-span-2">{success}</p>}
-          <Button type="submit" disabled={loading} className="sm:col-span-2">
+          <Button type="submit" disabled={loading} className="min-h-11 sm:col-span-2">
             {loading ? "Adding..." : "Add Trainer"}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+    </CollapsibleFormCard>
   );
 }
 
