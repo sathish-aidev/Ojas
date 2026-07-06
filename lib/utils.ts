@@ -32,6 +32,13 @@ export function formatDateTime(date: Date | string) {
   }).format(new Date(date));
 }
 
+export function formatTime(date: Date | string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
 export function getDashboardPath(role: string) {
   switch (role) {
     case "OWNER":

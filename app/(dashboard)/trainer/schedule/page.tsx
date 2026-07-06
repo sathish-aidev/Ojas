@@ -1,78 +1,68 @@
-import { requireTrainer } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
-import { SchedulePanel } from "@/components/salaries/salaries-panel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
-
-export default async function TrainerSchedulePage() {
-  const user = await requireTrainer();
-  if (!user.employeeId) return null;
-
-  const [slots, sessions] = await Promise.all([
-    prisma.trainerSlot.findMany({
-      where: { trainerId: user.employeeId, startAt: { gte: new Date() } },
-      orderBy: { startAt: "asc" },
-      take: 20,
-    }),
-    prisma.session.findMany({
-      where: {
-        trainerId: user.employeeId,
-        scheduledAt: { gte: new Date() },
-      },
-      include: { client: true },
-      orderBy: { scheduledAt: "asc" },
-      take: 20,
-    }),
-  ]);
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Schedule</h1>
-        <p className="text-muted-foreground">Manage your day and available slots</p>
-      </div>
-
-      <SchedulePanel trainerId={user.employeeId} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Upcoming Slots</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {slots.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No slots scheduled.</p>
-          ) : (
-            slots.map((slot) => (
-              <div key={slot.id} className="flex justify-between rounded border p-3 text-sm">
-                <span>
-                  {formatDateTime(slot.startAt)} – {formatDateTime(slot.endAt)}
-                  {slot.label && ` · ${slot.label}`}
-                </span>
-                <Badge variant={slot.isBlocked ? "destructive" : slot.clientId ? "default" : "success"}>
-                  {slot.isBlocked ? "Blocked" : slot.clientId ? "Booked" : "Open"}
-                </Badge>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Upcoming Sessions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {sessions.map((s) => (
-            <div key={s.id} className="flex justify-between rounded border p-3 text-sm">
-              <span>
-                {s.client.name} · {formatDateTime(s.scheduledAt)}
-              </span>
-              <Badge>{s.status}</Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+import { requireTrainer } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { TrainerScheduleBoard } from "@/components/trainer/trainer-schedule-board";
+
+export default async function TrainerSchedulePage() {
+  const user = await requireTrainer();
+  if (!user.employeeId) return null;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const [activeClients, slots, sessions] = await Promise.all([
+    prisma.client.findMany({
+      where: {
+        gymId: user.gymId,
+        trainerId: user.employeeId,
+        status: { in: ["ACTIVE", "TRIAL"] },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.trainerSlot.findMany({
+      where: {
+        trainerId: user.employeeId,
+        startAt: { gte: startOfToday },
+      },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.session.findMany({
+      where: {
+        trainerId: user.employeeId,
+        scheduledAt: { gte: startOfToday },
+      },
+      include: { client: { select: { id: true, name: true } } },
+      orderBy: { scheduledAt: "asc" },
+    }),
+  ]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Schedule</h1>
+        <p className="text-muted-foreground">
+          Book clients by time slot — your day view sorted chronologically
+        </p>
+      </div>
+
+      <TrainerScheduleBoard
+        trainerId={user.employeeId}
+        activeClients={activeClients}
+        slots={slots.map((s) => ({
+          id: s.id,
+          startAt: s.startAt.toISOString(),
+          endAt: s.endAt.toISOString(),
+          isBlocked: s.isBlocked,
+          label: s.label,
+          clientId: s.clientId,
+        }))}
+        sessions={sessions.map((s) => ({
+          id: s.id,
+          scheduledAt: s.scheduledAt.toISOString(),
+          status: s.status,
+          client: s.client,
+        }))}
+      />
+    </div>
+  );
+}

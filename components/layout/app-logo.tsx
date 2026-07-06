@@ -4,39 +4,28 @@ import { cn } from "@/lib/utils";
 
 type AppLogoProps = {
   size?: "sm" | "md" | "lg";
-  showName?: boolean;
   className?: string;
 };
 
-const sizes = {
-  sm: { icon: 32, nameH: 24, nameW: 80 },
-  md: { icon: 40, nameH: 28, nameW: 96 },
-  lg: { icon: 56, nameH: 36, nameW: 120 },
-};
+const iconSizes = { sm: 32, md: 40, lg: 56 };
+const textSizes = { sm: "text-base", md: "text-lg", lg: "text-2xl" };
 
-export function AppLogo({ size = "md", showName = true, className }: AppLogoProps) {
-  const dim = sizes[size];
-
+/** Single brand mark: icon + gym name text (not two separate logo images). */
+export function AppLogo({ size = "md", className }: AppLogoProps) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <Image
         src="/branding/logo.png"
-        alt={`${APP_NAME} logo`}
-        width={dim.icon}
-        height={dim.icon}
+        alt=""
+        aria-hidden
+        width={iconSizes[size]}
+        height={iconSizes[size]}
         className="rounded-lg object-contain"
         priority
       />
-      {showName && (
-        <Image
-          src="/branding/name.png"
-          alt={APP_NAME}
-          width={dim.nameW}
-          height={dim.nameH}
-          className="hidden h-auto w-auto max-h-7 object-contain sm:block"
-          priority
-        />
-      )}
+      <span className={cn("font-semibold tracking-tight text-foreground", textSizes[size])}>
+        {APP_NAME}
+      </span>
     </div>
   );
 }
