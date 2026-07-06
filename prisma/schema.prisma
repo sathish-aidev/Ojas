@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  SUPERVISOR
+  TRAINER
+}
+
+enum EmployeeType {
+  TRAINER
+  MANAGER
+  CLEANING
+}
+
+enum ClientStatus {
+  ACTIVE
+  TRIAL
+  EXPIRED
+  INACTIVE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRING
+  EXPIRED
+  CANCELLED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PayrollStatus {
+  PENDING
+  PAID
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum GoalType {
+  WEIGHT_LOSS
+  FITNESS
+  MUSCLE_GAIN
+  CUSTOM
+}
+
+enum MeasurementType {
+  WEIGHT
+  BODY_FAT
+  CHEST
+  WAIST
+  HIPS
+  BICEPS
+  THIGHS
+  CALVES
+  SHOULDERS
+  CUSTOM
+}
+
+enum MeasurementFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum SplitRuleMode {
+  FLAT
+  TARGET_BASED
+}
+
+model Gym {
+  id                   String   @id @default(cuid())
+  name                 String
+  location             String?
+  renewalReminderDays  Int      @default(7)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  users      User[]
+  employees  Employee[]
+  clients    Client[]
+  slots      TrainerSlot[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  gymId        String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  gym      Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  employee Employee?
+
+  @@index([gymId])
+  @@index([role])
+}
+
+model Employee {
+  id                  String       @id @default(cuid())
+  userId              String       @unique
+  gymId               String
+  employeeType        EmployeeType
+  baseSalary              Decimal      @default(0) @db.Decimal(12, 2)
+  monthlyTarget           Decimal?     @db.Decimal(12, 2)
+  revenueSplitBelowTarget Decimal?     @db.Decimal(5, 2)
+  revenueSplitAboveTarget Decimal?     @db.Decimal(5, 2)
+  targetSplitAppliesFrom  DateTime?
+  phone                   String?
+  joinedAt            DateTime     @default(now())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym        Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  clients    Client[]
+  sessions   Session[]
+  slots      TrainerSlot[]
+  payrollRuns PayrollRun[]
+  splitRules TrainerSplitRule[]
+
+  @@index([gymId])
+  @@index([employeeType])
+}
+
+model TrainerSplitRule {
+  id               String        @id @default(cuid())
+  employeeId       String
+  startMonth       Int
+  startYear        Int
+  endMonth         Int?
+  endYear          Int?
+  mode             SplitRuleMode
+  flatPercent      Decimal?      @db.Decimal(5, 2)
+  monthlyTarget    Decimal?      @db.Decimal(12, 2)
+  splitBelowTarget Decimal?      @db.Decimal(5, 2)
+  splitAboveTarget Decimal?      @db.Decimal(5, 2)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, startYear, startMonth])
+}
+
+model Client {
+  id         String       @id @default(cuid())
+  gymId      String
+  trainerId  String
+  name       String
+  phone      String?
+  email      String?
+  joinDate   DateTime     @default(now())
+  status     ClientStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  gym           Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  trainer       Employee         @relation(fields: [trainerId], references: [id])
+  subscriptions PTSubscription[]
+  sessions      Session[]
+  measurements  Measurement[]
+  goals         Goal[]
+  notes         ClientNote[]
+  dietPrograms  DietProgram[]
+  progressPhotos ProgressPhoto[]
+
+  @@index([gymId])
+  @@index([trainerId])
+  @@index([status])
+}
+
+model PTSubscription {
+  id            String             @id @default(cuid())
+  clientId      String
+  amount        Decimal            @db.Decimal(12, 2)
+  paymentDate   DateTime
+  startDate     DateTime
+  endDate       DateTime
+  sessionsTotal Int?
+  sessionsUsed  Int                @default(0)
+  monthsCount   Int?
+  status        SubscriptionStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([clientId])
+  @@index([endDate])
+  @@index([status])
+}
+
+model Payment {
+  id                 String   @id @default(cuid())
+  subscriptionId     String
+  amount             Decimal  @db.Decimal(12, 2)
+  paidAt             DateTime @default(now())
+  payableAt          DateTime?
+  collectedAt        DateTime?
+  installmentIndex   Int?
+  trainerShareAmount Decimal  @db.Decimal(12, 2)
+  ownerShareAmount   Decimal  @db.Decimal(12, 2)
+  splitPercentUsed   Decimal? @db.Decimal(5, 2)
+  paymentMode        PaymentMode?
+  proofUrl           String?
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  subscription PTSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([paidAt])
+}
+
+model Session {
+  id          String        @id @default(cuid())
+  clientId    String
+  trainerId   String
+  scheduledAt DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+  status      SessionStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  trainer Employee @relation(fields: [trainerId], references: [id])
+
+  @@index([clientId])
+  @@index([trainerId])
+  @@index([scheduledAt])
+}
+
+model TrainerSlot {
+  id        String   @id @default(cuid())
+  gymId     String
+  trainerId String
+  startAt   DateTime
+  endAt     DateTime
+  isBlocked Boolean  @default(false)
+  label     String?
+  clientId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gym     Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  trainer Employee @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+
+  @@index([trainerId])
+  @@index([startAt])
+}
+
+model Goal {
+  id          String    @id @default(cuid())
+  clientId    String
+  goalType    GoalType
+  title       String
+  targetValue Decimal?  @db.Decimal(10, 2)
+  currentValue Decimal? @db.Decimal(10, 2)
+  unit        String?
+  deadline    DateTime?
+  notes       String?
+  isAchieved  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model Measurement {
+  id        String               @id @default(cuid())
+  clientId  String
+  type      MeasurementType
+  value     Decimal              @db.Decimal(10, 2)
+  unit      String               @default("kg")
+  frequency MeasurementFrequency @default(WEEKLY)
+  recordedAt DateTime            @default(now())
+  notes     String?
+  createdAt DateTime             @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([type])
+  @@index([recordedAt])
+}
+
+model ClientNote {
+  id        String   @id @default(cuid())
+  clientId  String
+  content   String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model DietProgram {
+  id        String   @id @default(cuid())
+  clientId  String
+  title     String
+  content   String
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  adherenceNotes String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model ProgressPhoto {
+  id        String   @id @default(cuid())
+  clientId  String
+  imageUrl  String
+  caption   String?
+  takenAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model PayrollRun {
+  id           String        @id @default(cuid())
+  employeeId   String
+  month        Int
+  year         Int
+  baseSalary   Decimal       @db.Decimal(12, 2)
+  commission   Decimal       @default(0) @db.Decimal(12, 2)
+  incentives   Decimal       @default(0) @db.Decimal(12, 2)
+  deductions   Decimal       @default(0) @db.Decimal(12, 2)
+  expenses     Decimal       @default(0) @db.Decimal(12, 2)
+  grossPay     Decimal       @db.Decimal(12, 2)
+  netPay       Decimal       @db.Decimal(12, 2)
+  status       PayrollStatus @default(PENDING)
+  paidAt         DateTime?
+  notes          String?
+  reportSnapshot Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  employee  Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  lineItems PayrollLineItem[]
+
+  @@unique([employeeId, month, year])
+  @@index([employeeId])
+  @@index([year, month])
+}
+
+model PayrollLineItem {
+  id           String   @id @default(cuid())
+  payrollRunId String
+  label        String
+  amount       Decimal  @db.Decimal(12, 2)
+  isDeduction  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+
+  @@index([payrollRunId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  gymId     String
+  userId    String?
+  title     String
+  message   String
+  type      String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([gymId])
+  @@index([userId])
+  @@index([isRead])
+}

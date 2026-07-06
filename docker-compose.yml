@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: impackt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: impackt
+      POSTGRES_PASSWORD: impackt_dev
+      POSTGRES_DB: impackt_gym
+    ports:
+      - "5433:5432"
+    volumes:
+      - impackt_pg_data:/var/lib/postgresql/data
+
+volumes:
+  impackt_pg_data:
