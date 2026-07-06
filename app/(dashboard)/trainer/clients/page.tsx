@@ -1,6 +1,7 @@
 import { requireTrainer } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decimalToNumber } from "@/lib/utils";
+import { hasActivePt } from "@/lib/client-pt-status";
 import { TrainerClientsTabs } from "@/components/clients/trainer-clients-tabs";
 
 export default async function TrainerClientsPage({
@@ -37,9 +38,7 @@ export default async function TrainerClientsPage({
     };
   });
 
-  const activeClients = allClients.filter(
-    (c) => c.status === "ACTIVE" || c.status === "TRIAL"
-  );
+  const activeClients = allClients.filter((c) => hasActivePt(c.subEndDate));
 
   return (
     <TrainerClientsTabs

@@ -45,7 +45,7 @@ export default function LoginPage() {
     >
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <AppLogo size="lg" className="mb-2 justify-center" />
+          <AppLogo variant="login" className="mb-2" />
           <CardTitle className="sr-only">Sign in</CardTitle>
           <CardDescription>Sign in to manage personal training</CardDescription>
         </CardHeader>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { computeRevenueSplit, getMonthYear } from "@/lib/permissions";
 import { decimalToNumber } from "@/lib/utils";
+import { hasActivePt } from "@/lib/client-pt-status";
 import {
   resolveSplitForMonth,
   recalculateTrainerMonthSplits,
@@ -81,15 +82,22 @@ export async function getTrainerDashboardStats(employeeId: string) {
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
 
-  const [clientCount, todaySessions, expiring, payments, openSlots] = await Promise.all([
-    prisma.client.count({ where: { trainerId: employeeId, status: "ACTIVE" } }),
-    prisma.session.findMany({
+  const [clients, todaySlots, expiring, payments, openSlots] = await Promise.all([
+    prisma.client.findMany({
+      where: { trainerId: employeeId },
+      include: {
+        subscriptions: { orderBy: { endDate: "desc" }, take: 1 },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.trainerSlot.findMany({
       where: {
         trainerId: employeeId,
-        scheduledAt: { gte: startOfDay, lte: endOfDay },
+        startAt: { gte: startOfDay, lte: endOfDay },
+        clientId: { not: null },
+        isBlocked: false,
       },
-      include: { client: true },
-      orderBy: { scheduledAt: "asc" },
+      orderBy: { startAt: "asc" },
     }),
     prisma.pTSubscription.findMany({
       where: {
@@ -116,14 +124,45 @@ export async function getTrainerDashboardStats(employeeId: string) {
     }),
   ]);
 
+  const activeClients = clients.filter((c) =>
+    hasActivePt(c.subscriptions[0]?.endDate, now)
+  );
+
+  const slotByClientId = new Map(
+    todaySlots.map((slot) => [slot.clientId!, slot])
+  );
+
+  const withSlot = activeClients
+    .filter((c) => slotByClientId.has(c.id))
+    .map((c) => ({
+      clientId: c.id,
+      clientName: c.name,
+      startAt: slotByClientId.get(c.id)!.startAt,
+      endAt: slotByClientId.get(c.id)!.endAt,
+      hasSlot: true as const,
+    }))
+    .sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+
+  const withoutSlot = activeClients
+    .filter((c) => !slotByClientId.has(c.id))
+    .map((c) => ({
+      clientId: c.id,
+      clientName: c.name,
+      startAt: null,
+      endAt: null,
+      hasSlot: false as const,
+    }));
+
+  const todaySchedule = [...withSlot, ...withoutSlot];
+
   const monthlyEarnings = payments.reduce(
     (sum, p) => sum + decimalToNumber(p.trainerShareAmount),
     0
   );
 
   return {
-    clientCount,
-    todaySessions,
+    clientCount: activeClients.length,
+    todaySchedule,
     expiringClients: expiring,
     monthlyEarnings,
     openSlots,
