@@ -2,8 +2,8 @@
  * Import historical client PT data from Google Sheet CSV exports.
  *
  * Usage:
- *   npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer Sai --dry-run
- *   npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer Sai
+ *   npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer "Sai Karan" --dry-run
+ *   npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer "Sai Karan"
  */
 import fs from "fs";
 import path from "path";

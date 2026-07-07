@@ -99,24 +99,24 @@ async function main() {
   );
   assert(!usesTargetBasedSplit(rohithConfig, 5, 2026), "May is flat split period");
 
-  console.log("\n8. Sai split rules (Jan flat 45%, Feb+ target 45/50)");
+  console.log("\n8. Sai Karan split rules (Jan flat 45%, Feb+ target 45/50)");
   const sai = await prisma.employee.findFirst({
-    where: { employeeType: "TRAINER", user: { name: "Sai" } },
+    where: { employeeType: "TRAINER", user: { name: "Sai Karan" } },
   });
 
   if (!sai) {
-    console.log("  (skipped — Sai not in DB; run npm run migrate:split-rules)");
+    console.log("  (skipped — Sai Karan not in DB; run npm run migrate:split-rules)");
   } else {
     const jan = await resolveSplitForMonth(sai.id, 1, 2026, 50000);
-    assert(jan.splitPercent === 45, "Sai Jan 2026 flat 45%");
-    assert(jan.flatSplitPeriod === true, "Sai Jan is flat period");
+    assert(jan.splitPercent === 45, "Sai Karan Jan 2026 flat 45%");
+    assert(jan.flatSplitPeriod === true, "Sai Karan Jan is flat period");
 
     const febBelow = await resolveSplitForMonth(sai.id, 2, 2026, 50000);
-    assert(febBelow.splitPercent === 45, "Sai Feb 2026 below target = 45%");
+    assert(febBelow.splitPercent === 45, "Sai Karan Feb 2026 below target = 45%");
 
     const febAbove = await resolveSplitForMonth(sai.id, 2, 2026, 65000);
-    assert(febAbove.splitPercent === 50, "Sai Feb 2026 target met = 50%");
-    assert(febAbove.targetMet === true, "Sai Feb target met flag");
+    assert(febAbove.splitPercent === 50, "Sai Karan Feb 2026 target met = 50%");
+    assert(febAbove.targetMet === true, "Sai Karan Feb target met flag");
   }
 
   console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);

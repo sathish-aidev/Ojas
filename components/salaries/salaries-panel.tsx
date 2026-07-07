@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,16 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { getMonthName } from "@/lib/permissions";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
+import { SheetSyncPanel } from "@/components/sync/sheet-sync-panel";
 
 type PayrollRow = {
   employee: {
     id: string;
     employeeType: string;
     user: { name: string };
+    defaultSalary?: number;
   };
+  salaryOverride?: number | null;
   payroll: {
     id: string;
     month: number;
@@ -36,6 +39,9 @@ export function SalariesPanel({
   year,
   canEdit,
   canPay,
+  canSync = false,
+  canRestoreSync = false,
+  syncRuns = [],
   reportsPath = "/owner/reports",
 }: {
   overview: PayrollRow[];
@@ -43,6 +49,19 @@ export function SalariesPanel({
   year: number;
   canEdit: boolean;
   canPay: boolean;
+  canSync?: boolean;
+  canRestoreSync?: boolean;
+  syncRuns?: Array<{
+    id: string;
+    status: string;
+    source: string;
+    createdAt: string;
+    summary: {
+      totalCreated?: number;
+      totalUpdated?: number;
+      totalErrors?: number;
+    };
+  }>;
   reportsPath?: string;
 }) {
   const router = useRouter();
@@ -65,8 +84,20 @@ export function SalariesPanel({
     router.refresh();
   }
 
+  async function saveStaffSalary(employeeId: string, baseSalary: number) {
+    await fetch("/api/payroll/salary-override", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId, month, year, baseSalary }),
+    });
+    router.refresh();
+  }
+
   return (
     <div className="space-y-6">
+      {canSync && (
+        <SheetSyncPanel runs={syncRuns} canRestore={canRestoreSync} />
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Salaries</h1>
@@ -87,7 +118,7 @@ export function SalariesPanel({
       </div>
 
       <div className="grid gap-4">
-        {overview.map(({ employee, payroll }) => (
+        {overview.map(({ employee, payroll, salaryOverride }) => (
           <Card key={employee.id}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
@@ -127,6 +158,13 @@ export function SalariesPanel({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {employee.employeeType !== "TRAINER" && (canEdit || canPay) && (
+                      <StaffSalaryInput
+                        compact
+                        defaultValue={payroll.baseSalary}
+                        onSave={(value) => saveStaffSalary(employee.id, value)}
+                      />
+                    )}
                     {employee.employeeType === "TRAINER" && (
                       <Button asChild variant="outline" size="sm">
                         <Link
@@ -149,10 +187,20 @@ export function SalariesPanel({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3">
                   <p className="text-sm text-muted-foreground">
                     Payroll not generated for this month.
                   </p>
+                  {employee.employeeType !== "TRAINER" && (canEdit || canPay) && (
+                    <StaffSalaryInput
+                      defaultValue={
+                        salaryOverride ??
+                        employee.defaultSalary ??
+                        0
+                      }
+                      onSave={(value) => saveStaffSalary(employee.id, value)}
+                    />
+                  )}
                   {employee.employeeType === "TRAINER" && (
                     <Button asChild variant="outline" size="sm">
                       <Link
@@ -168,6 +216,39 @@ export function SalariesPanel({
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+function StaffSalaryInput({
+  defaultValue,
+  onSave,
+  compact = false,
+}: {
+  defaultValue: number;
+  onSave: (value: number) => void;
+  compact?: boolean;
+}) {
+  const [value, setValue] = useState(String(defaultValue));
+
+  return (
+    <div className={`flex items-center gap-2 ${compact ? "" : "max-w-xs"}`}>
+      {!compact && <span className="text-sm text-muted-foreground">Salary this month</span>}
+      <Input
+        type="number"
+        inputMode="numeric"
+        className="min-h-10 w-32"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => onSave(Number(value))}
+      >
+        Save
+      </Button>
     </div>
   );
 }

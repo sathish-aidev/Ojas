@@ -12,7 +12,7 @@ async function main() {
   const trainers = await prisma.employee.findMany({
     where: {
       employeeType: "TRAINER",
-      user: { name: { in: ["Sai", "Rohith", "Rahul"] } },
+      user: { name: { in: ["Sai Karan", "Rohith", "Rahul"] } },
     },
     include: {
       user: true,

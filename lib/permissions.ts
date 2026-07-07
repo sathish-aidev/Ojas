@@ -27,6 +27,14 @@ export function canRecordPayroll(role: UserRole) {
   return role === "OWNER" || role === "SUPERVISOR";
 }
 
+export function canSyncFromSheets(role: UserRole) {
+  return role === "OWNER" || role === "SUPERVISOR";
+}
+
+export function canRestoreSheetSync(role: UserRole) {
+  return role === "OWNER";
+}
+
 export function canViewAllTrainers(role: UserRole) {
   return role === "OWNER" || role === "SUPERVISOR";
 }

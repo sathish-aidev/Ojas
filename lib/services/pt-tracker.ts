@@ -320,6 +320,123 @@ export async function createSubscriptionWithPayment(data: {
   return subscription;
 }
 
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+/** Upsert by client + start date + amount — updates payments when matched. */
+export async function upsertSubscriptionWithPayment(data: {
+  clientId: string;
+  amount: number;
+  paymentDate: Date;
+  startDate: Date;
+  endDate: Date;
+  monthsCount?: number;
+  paymentMode?: "CASH" | "UPI" | "CARD" | "BANK_TRANSFER" | "OTHER";
+  proofUrl?: string;
+  sessionsTotal?: number;
+  notes?: string;
+}): Promise<"created" | "updated"> {
+  const existing = await prisma.pTSubscription.findFirst({
+    where: {
+      clientId: data.clientId,
+      startDate: { gte: startOfDay(data.startDate), lte: endOfDay(data.startDate) },
+      amount: data.amount,
+    },
+  });
+
+  if (!existing) {
+    await createSubscriptionWithPayment(data);
+    return "created";
+  }
+
+  const client = await prisma.client.findUnique({
+    where: { id: data.clientId },
+    include: { trainer: true },
+  });
+  if (!client) throw new Error("Client not found");
+
+  const monthsCount =
+    data.monthsCount && data.monthsCount > 0
+      ? data.monthsCount
+      : inferMonthsCount(data.startDate, data.endDate);
+
+  const installments = allocateMonthlyInstallments(
+    data.amount,
+    data.startDate,
+    monthsCount
+  );
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.deleteMany({ where: { subscriptionId: existing.id } });
+    await tx.pTSubscription.update({
+      where: { id: existing.id },
+      data: {
+        amount: data.amount,
+        paymentDate: data.paymentDate,
+        endDate: data.endDate,
+        monthsCount,
+        sessionsTotal: data.sessionsTotal,
+        notes: data.notes,
+        status: data.endDate > new Date() ? "ACTIVE" : "EXPIRED",
+      },
+    });
+
+    const collMonth = data.paymentDate.getMonth() + 1;
+    const collYear = data.paymentDate.getFullYear();
+
+    for (const inst of installments) {
+      const existingMtd = await tx.payment.findMany({
+        where: {
+          ...paymentsCollectedInMonthWhere(collMonth, collYear),
+          subscription: { client: { trainerId: client.trainerId } },
+        },
+        select: { amount: true },
+      });
+      const mtd = existingMtd.reduce((s, p) => s + Number(p.amount), 0);
+      const resolution = await resolveSplitForMonth(
+        client.trainerId,
+        collMonth,
+        collYear,
+        mtd + inst.amount
+      );
+      const splitPercent = resolution.splitPercent;
+      const { trainerShare, ownerShare } = computeRevenueSplit(inst.amount, splitPercent);
+
+      await tx.payment.create({
+        data: {
+          subscriptionId: existing.id,
+          amount: inst.amount,
+          paidAt: inst.serviceDate,
+          payableAt: inst.payableDate,
+          collectedAt: data.paymentDate,
+          installmentIndex: inst.installmentIndex,
+          trainerShareAmount: trainerShare,
+          ownerShareAmount: ownerShare,
+          splitPercentUsed: splitPercent,
+          paymentMode: data.paymentMode,
+          proofUrl: inst.installmentIndex === 0 ? data.proofUrl : undefined,
+          notes: inst.installmentIndex === 0 ? data.notes : undefined,
+        },
+      });
+    }
+  });
+
+  const collMonth = data.paymentDate.getMonth() + 1;
+  const collYear = data.paymentDate.getFullYear();
+  await recalculateTrainerMonthSplits(client.trainerId, collMonth, collYear);
+
+  return "updated";
+}
+
 export async function syncSubscriptionStatuses(gymId: string) {
   const now = new Date();
   const reminderDays = (

@@ -97,6 +97,7 @@ model Gym {
   employees  Employee[]
   clients    Client[]
   slots      TrainerSlot[]
+  sheetSyncRuns SheetSyncRun[]
 }
 
 model User {
@@ -139,6 +140,7 @@ model Employee {
   slots      TrainerSlot[]
   payrollRuns PayrollRun[]
   splitRules TrainerSplitRule[]
+  salaryOverrides MonthlySalaryOverride[]
 
   @@index([gymId])
   @@index([employeeType])
@@ -410,4 +412,49 @@ model Notification {
   @@index([gymId])
   @@index([userId])
   @@index([isRead])
+}
+
+model SheetSyncRun {
+  id          String   @id @default(cuid())
+  gymId       String
+  triggeredBy String?
+  source      String
+  status      String
+  month       Int?
+  year        Int?
+  summary     Json
+  createdAt   DateTime @default(now())
+
+  gym       Gym                @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  snapshots SheetTabSnapshot[]
+
+  @@index([gymId])
+  @@index([createdAt])
+}
+
+model SheetTabSnapshot {
+  id         String @id @default(cuid())
+  syncRunId  String
+  tabName    String
+  rawRows    Json
+  parsedRows Json
+
+  syncRun SheetSyncRun @relation(fields: [syncRunId], references: [id], onDelete: Cascade)
+
+  @@index([syncRunId])
+}
+
+model MonthlySalaryOverride {
+  id         String   @id @default(cuid())
+  employeeId String
+  month      Int
+  year       Int
+  baseSalary Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, month, year])
+  @@index([year, month])
 }

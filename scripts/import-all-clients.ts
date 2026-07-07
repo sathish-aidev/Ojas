@@ -1,12 +1,12 @@
 /**
- * Setup trainers (Sai, Rohith, Rahul) and import all PT CSV files.
+ * Setup trainers (Sai Karan, Rohith, Rahul) and import all PT CSV files.
  * Usage: npm run import:all-clients
  * Set DATABASE_URL to production before running against Neon.
  */
 import { execSync } from "child_process";
 
 const imports = [
-  { file: "resources/Impackt1_Gym - PT-Sai.csv", trainer: "Sai" },
+  { file: "resources/Impackt1_Gym - PT-Sai.csv", trainer: "Sai Karan" },
   { file: "resources/Impackt1_Gym - PT-Rohith.csv", trainer: "Rohith" },
   { file: "resources/Impackt1_Gym - PT-Rahul.csv", trainer: "Rahul" },
 ];

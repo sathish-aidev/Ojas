@@ -5,7 +5,7 @@ One-time CLI import for Google Sheet CSV exports in `resources/`.
 ## Prerequisites
 
 1. Database running and seeded (`npm run db:seed` if fresh)
-2. Trainers **Sai**, **Rohith**, **Rahul** exist with correct target/split settings:
+2. Trainers **Sai Karan**, **Rohith**, **Rahul** exist with correct target/split settings:
 
 ```bash
 npx tsx scripts/setup-trainers-for-import.ts
@@ -18,7 +18,7 @@ npx tsx scripts/setup-trainers-for-import.ts
 Dry-run (no DB writes):
 
 ```bash
-npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer Sai --dry-run
+npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer "Sai Karan" --dry-run
 npm run import:clients -- --file "resources/Impackt1_Gym - PT-Rohith.csv" --trainer Rohith --dry-run
 npm run import:clients -- --file "resources/Impackt1_Gym - PT-Rahul.csv" --trainer Rahul --dry-run
 ```
@@ -26,7 +26,7 @@ npm run import:clients -- --file "resources/Impackt1_Gym - PT-Rahul.csv" --train
 Execute import (remove `--dry-run`):
 
 ```bash
-npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer Sai
+npm run import:clients -- --file "resources/Impackt1_Gym - PT-Sai.csv" --trainer "Sai Karan"
 npm run import:clients -- --file "resources/Impackt1_Gym - PT-Rohith.csv" --trainer Rohith
 npm run import:clients -- --file "resources/Impackt1_Gym - PT-Rahul.csv" --trainer Rahul
 ```

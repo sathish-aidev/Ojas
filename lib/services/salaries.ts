@@ -39,6 +39,35 @@ function buildPayrollLineItems(
   return items;
 }
 
+export async function resolveEmployeeBaseSalary(
+  employeeId: string,
+  defaultSalary: number,
+  month: number,
+  year: number
+) {
+  const override = await prisma.monthlySalaryOverride.findUnique({
+    where: {
+      employeeId_month_year: { employeeId, month, year },
+    },
+  });
+  return override ? decimalToNumber(override.baseSalary) : defaultSalary;
+}
+
+export async function setMonthlySalaryOverride(
+  employeeId: string,
+  month: number,
+  year: number,
+  baseSalary: number
+) {
+  return prisma.monthlySalaryOverride.upsert({
+    where: {
+      employeeId_month_year: { employeeId, month, year },
+    },
+    create: { employeeId, month, year, baseSalary },
+    update: { baseSalary },
+  });
+}
+
 export async function generatePayrollForGym(gymId: string, month: number, year: number) {
   const employees = await prisma.employee.findMany({
     where: { gymId },
@@ -48,7 +77,11 @@ export async function generatePayrollForGym(gymId: string, month: number, year: 
   const results = [];
 
   for (const employee of employees) {
-    const baseSalary = decimalToNumber(employee.baseSalary);
+    const defaultSalary = decimalToNumber(employee.baseSalary);
+    const baseSalary =
+      employee.employeeType !== "TRAINER"
+        ? await resolveEmployeeBaseSalary(employee.id, defaultSalary, month, year)
+        : defaultSalary;
     let commission = 0;
     let report: TrainerMonthlyReport | null = null;
 
@@ -195,17 +228,25 @@ export async function getSalariesOverview(gymId: string, month: number, year: nu
         where: { month, year },
         include: { lineItems: true },
       },
+      salaryOverrides: {
+        where: { month, year },
+      },
     },
   });
 
   return employees.map((emp) => {
     const payroll = emp.payrollRuns[0];
+    const override = emp.salaryOverrides[0];
+    const defaultSalary = decimalToNumber(emp.baseSalary);
     return {
       employee: {
         id: emp.id,
         employeeType: emp.employeeType,
         user: { name: emp.user.name },
+        defaultSalary,
       },
+      salaryOverride:
+        override != null ? decimalToNumber(override.baseSalary) : null,
       payroll: payroll
         ? {
             id: payroll.id,

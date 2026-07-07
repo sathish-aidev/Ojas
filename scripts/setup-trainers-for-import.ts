@@ -1,5 +1,5 @@
 /**
- * Upsert trainers Sai, Rohith, Rahul for CSV import without wiping existing data.
+ * Upsert trainers Sai Karan, Rohith, Rahul for CSV import without wiping existing data.
  * Run: npx tsx scripts/setup-trainers-for-import.ts
  */
 import { PrismaClient } from "@prisma/client";
@@ -20,7 +20,7 @@ const TRAINERS: Array<{
   splitRules?: CreateSplitRuleInput[];
 }> = [
   {
-    name: "Sai",
+    name: "Sai Karan",
     email: "sai@impackt.gym",
     monthlyTarget: 60000,
     below: 45,

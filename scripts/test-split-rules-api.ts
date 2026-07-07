@@ -7,16 +7,16 @@ import { listSplitRules, updateSplitRule } from "../lib/services/trainer-split-r
 
 async function main() {
   const sai = await prisma.employee.findFirst({
-    where: { employeeType: "TRAINER", user: { name: "Sai" } },
+    where: { employeeType: "TRAINER", user: { name: "Sai Karan" } },
     select: { id: true },
   });
-  if (!sai) throw new Error("Sai trainer not found");
+  if (!sai) throw new Error("Sai Karan trainer not found");
 
   const rules = await listSplitRules(sai.id);
-  if (rules.length === 0) throw new Error("No split rules for Sai");
+  if (rules.length === 0) throw new Error("No split rules for Sai Karan");
 
   const janRule = rules.find((r) => r.startMonth === 1 && r.startYear === 2026);
-  if (!janRule) throw new Error("Sai Jan 2026 rule not found");
+  if (!janRule) throw new Error("Sai Karan Jan 2026 rule not found");
 
   const result = await updateSplitRule(
     janRule.id,
@@ -27,7 +27,7 @@ async function main() {
 
   console.log("  ✓ listSplitRules");
   console.log("  ✓ updateSplitRule (PATCH path)");
-  console.log(`\nSplit rules API smoke test passed (${rules.length} rules for Sai).\n`);
+  console.log(`\nSplit rules API smoke test passed (${rules.length} rules for Sai Karan).\n`);
 }
 
 main()

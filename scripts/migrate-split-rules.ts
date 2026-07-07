@@ -9,7 +9,7 @@ import type { CreateSplitRuleInput } from "../lib/services/trainer-split-rules";
 const prisma = new PrismaClient();
 
 const TRAINER_RULES: Record<string, CreateSplitRuleInput[]> = {
-  Sai: [
+  "Sai Karan": [
     {
       startMonth: 1,
       startYear: 2026,
