@@ -9,13 +9,38 @@ import {
   PT_SPREADSHEET_NAME,
   SHEET_HEADERS,
   getDriveFolderId,
+  getOwnerReportEmail,
 } from "../lib/sheet-config";
+import { findSpreadsheetByName } from "../lib/google/drive-archive";
+
+async function transferToOwner(drive: ReturnType<typeof google.drive>, fileId: string) {
+  const ownerEmail = getOwnerReportEmail();
+  await drive.permissions.create({
+    fileId,
+    requestBody: {
+      type: "user",
+      role: "owner",
+      emailAddress: ownerEmail,
+    },
+    transferOwnership: true,
+    supportsAllDrives: true,
+  });
+}
 
 async function main() {
   const auth = getGoogleAuth(ALL_GOOGLE_SCOPES);
   const drive = google.drive({ version: "v3", auth });
   const sheets = google.sheets({ version: "v4", auth });
   const folderId = getDriveFolderId();
+
+  const existing = await findSpreadsheetByName();
+  if (existing) {
+    console.log("\nSpreadsheet already exists!");
+    console.log(`  ID: ${existing}`);
+    console.log(`  URL: https://docs.google.com/spreadsheets/d/${existing}`);
+    console.log(`\nGOOGLE_SHEETS_SPREADSHEET_ID=${existing}`);
+    return;
+  }
 
   const createRes = await drive.files.create({
     requestBody: {
@@ -24,10 +49,20 @@ async function main() {
       parents: [folderId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
 
   const spreadsheetId = createRes.data.id;
   if (!spreadsheetId) throw new Error("Failed to create spreadsheet");
+
+  try {
+    await transferToOwner(drive, spreadsheetId);
+  } catch (err) {
+    console.warn(
+      "Note: Could not transfer ownership to your Gmail — file may still work if folder is shared.",
+      err instanceof Error ? err.message : err
+    );
+  }
 
   const meta = await sheets.spreadsheets.get({ spreadsheetId });
   const defaultSheetId = meta.data.sheets?.[0]?.properties?.sheetId ?? 0;

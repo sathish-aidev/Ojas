@@ -6,8 +6,27 @@ import {
   getSpreadsheetId,
   PT_SPREADSHEET_NAME,
   REPORTS_FOLDER_NAME,
+  WEEKLY_BACKUPS_FOLDER,
 } from "@/lib/sheet-config";
 import { getMonthName } from "@/lib/permissions";
+import { getOwnerReportEmail } from "@/lib/sheet-config";
+
+async function transferFileToOwner(drive: Awaited<ReturnType<typeof getDriveClient>>, fileId: string) {
+  try {
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        type: "user",
+        role: "owner",
+        emailAddress: getOwnerReportEmail(),
+      },
+      transferOwnership: true,
+      supportsAllDrives: true,
+    });
+  } catch {
+    // Non-fatal — backup may still be readable via shared folder
+  }
+}
 
 async function getDriveClient() {
   const auth = getGoogleAuth(ALL_GOOGLE_SCOPES);
@@ -69,6 +88,8 @@ export async function findSpreadsheetByName(
     q,
     fields: "files(id,name)",
     pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
   return res.data.files?.[0]?.id ?? null;
 }
@@ -103,8 +124,10 @@ export async function copySpreadsheetBackup(
       parents: [destFolderId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
   if (!res.data.id) throw new Error("Failed to copy spreadsheet backup");
+  await transferFileToOwner(drive, res.data.id);
   return res.data.id;
 }
 
@@ -131,4 +154,36 @@ export async function uploadPdfToFolder(
 
 export function getMonthFolderWebLink(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
+}
+
+export async function ensureWeeklyBackupFolder(date = new Date()): Promise<{
+  folderId: string;
+  folderName: string;
+}> {
+  const rootId = getDriveFolderId();
+  const backupsId = await ensureFolder(rootId, WEEKLY_BACKUPS_FOLDER);
+  const folderName = date.toISOString().slice(0, 10);
+  const folderId = await ensureFolder(backupsId, folderName);
+  return { folderId, folderName };
+}
+
+export async function copySpreadsheetWeeklyBackup(
+  destFolderId: string,
+  date = new Date()
+): Promise<string> {
+  const drive = await getDriveClient();
+  const spreadsheetId = getSpreadsheetId();
+  const label = date.toISOString().slice(0, 10);
+  const res = await drive.files.copy({
+    fileId: spreadsheetId,
+    requestBody: {
+      name: `Ojas-PT-Tracker-Backup-${label}`,
+      parents: [destFolderId],
+    },
+    fields: "id,webViewLink",
+    supportsAllDrives: true,
+  });
+  if (!res.data.id) throw new Error("Failed to copy weekly spreadsheet backup");
+  await transferFileToOwner(drive, res.data.id);
+  return res.data.webViewLink ?? `https://drive.google.com/file/d/${res.data.id}/view`;
 }

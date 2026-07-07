@@ -3,6 +3,7 @@ export const TRAINER_SHEET_TABS = ["Rohith", "Sai Karan", "Rahul"] as const;
 
 export const PT_SPREADSHEET_NAME = "Ojas PT Tracker";
 export const REPORTS_FOLDER_NAME = "Reports";
+export const WEEKLY_BACKUPS_FOLDER = "Backups";
 
 export const SHEET_HEADERS = [
   "Customer",

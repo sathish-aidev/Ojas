@@ -15,7 +15,7 @@ Location: [Google Drive folder](https://drive.google.com/drive/folders/1Jb8g5gFU
 
 **Row 1** — Instructions (do not delete):
 ```
-Ojas PT Tracker | Trainer: Rohith | Do not delete header row | Dates: DD/MM/YYYY
+Ojas PT Tracker | Trainer: Rohith | Master copy — source of truth | Dates: DD/MM/YYYY
 ```
 
 **Row 2** — Headers (required):
@@ -40,6 +40,9 @@ Sample Client | 01/03/2026 | 01/04/2026 | yes 01/03/2026 | 15000 | 1 | PhonePe |
 
 Owner or Supervisor → **Salaries** → **Sync from Google Sheets**
 
-## Monthly reports
+The Google Sheet is the **source of truth**. Add new clients in the sheet or via the portal, then sync to update the app.
 
-Auto-archived to `Reports/YYYY-MM/` in the same Drive folder on the 1st of each month.
+## Backups
+
+- **Weekly** (Sundays): full sheet copied to `Backups/YYYY-MM-DD/` in Drive
+- **Monthly** (1st): sheet backup + payroll PDFs in `Reports/YYYY-MM/`

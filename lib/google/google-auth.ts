@@ -23,7 +23,7 @@ export function getGoogleAuth(scopes: string[]) {
 }
 
 export const SHEETS_SCOPES = [
-  "https://www.googleapis.com/auth/spreadsheets.readonly",
+  "https://www.googleapis.com/auth/spreadsheets",
 ];
 
 export const DRIVE_SCOPES = [

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/weekly-sheet-backup",
+      "schedule": "0 3 * * 0"
+    },
+    {
       "path": "/api/cron/monthly-close",
       "schedule": "0 0 1 * *"
     }

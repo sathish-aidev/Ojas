@@ -23,6 +23,8 @@
     "recalculate:trainer-splits": "tsx scripts/recalculate-trainer-splits.ts",
     "migrate:split-rules": "tsx scripts/migrate-split-rules.ts",
     "init:google-sheet": "tsx scripts/init-google-sheet.ts",
+    "populate:google-sheet": "tsx scripts/populate-google-sheet.ts",
+    "export:db-to-sheet": "tsx scripts/export-db-to-google-sheet.ts",
     "rename:sai-karan": "tsx scripts/rename-sai-karan.ts",
     "verify:app": "tsx scripts/verify-app-health.ts",
     "postinstall": "prisma generate"
