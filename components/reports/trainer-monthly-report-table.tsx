@@ -7,10 +7,10 @@ const COL_SPAN = 10;
 
 export function TrainerMonthlyReportTable({
   report,
-  showPayrollSummary = true,
+  showAll = false,
 }: {
   report: TrainerMonthlyReport;
-  showPayrollSummary?: boolean;
+  showAll?: boolean;
 }) {
   const { trainer, period, rows, summary } = report;
 
@@ -54,9 +54,9 @@ export function TrainerMonthlyReportTable({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Lists all clients active this month. Split % applies to every active PT based on whether
-        collections in {getMonthName(period.month)} {period.year} met the target. Paid This Month
-        shows cash collected this month; Paid On is when the client actually paid.
+        {showAll
+          ? "All PT packages for this trainer, sorted by start date."
+          : `Lists all clients active this month. Split % applies to every active PT based on whether collections in ${getMonthName(period.month)} ${period.year} met the target. This Month Revenue shows cash collected this month; Paid On is when the client actually paid.`}
       </p>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -68,9 +68,9 @@ export function TrainerMonthlyReportTable({
               <th className="px-3 py-2 font-medium">Start</th>
               <th className="px-3 py-2 font-medium">End</th>
               <th className="px-3 py-2 font-medium text-right">Months</th>
-              <th className="px-3 py-2 font-medium text-right">Monthly Share</th>
+              <th className="px-3 py-2 font-medium text-right">Monthly Fee</th>
               <th className="px-3 py-2 font-medium text-right">Paid On</th>
-              <th className="px-3 py-2 font-medium text-right">Paid This Month</th>
+              <th className="px-3 py-2 font-medium text-right">This Month Revenue</th>
               <th className="px-3 py-2 font-medium text-right">Split %</th>
               <th className="px-3 py-2 font-medium text-right">Trainer Share</th>
             </tr>
@@ -113,46 +113,16 @@ export function TrainerMonthlyReportTable({
                 </td>
                 <td className="px-3 py-2 text-right">{formatCurrency(summary.totalPtRevenue)}</td>
                 <td className="px-3 py-2" />
+                <td className="px-3 py-2" />
+              </tr>
+              <tr className="border-t bg-muted/20 font-semibold">
+                <td colSpan={9} className="px-3 py-2 text-right">
+                  Total Trainer Share
+                </td>
                 <td className="px-3 py-2 text-right">
                   {formatCurrency(summary.totalTrainerShare)}
                 </td>
               </tr>
-              {showPayrollSummary && (
-                <>
-                  <tr className="border-t">
-                    <td colSpan={9} className="px-3 py-2 text-right text-muted-foreground">
-                      Base Salary
-                    </td>
-                    <td className="px-3 py-2 text-right">{formatCurrency(summary.baseSalary)}</td>
-                  </tr>
-                  {summary.incentives > 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-2 text-right text-muted-foreground">
-                        Incentives
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        {formatCurrency(summary.incentives)}
-                      </td>
-                    </tr>
-                  )}
-                  {(summary.deductions > 0 || summary.expenses > 0) && (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-2 text-right text-muted-foreground">
-                        Deductions / Expenses
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        -{formatCurrency(summary.deductions + summary.expenses)}
-                      </td>
-                    </tr>
-                  )}
-                  <tr className="border-t bg-primary/5 font-bold">
-                    <td colSpan={9} className="px-3 py-2 text-right">
-                      Net Payable
-                    </td>
-                    <td className="px-3 py-2 text-right">{formatCurrency(summary.netPay)}</td>
-                  </tr>
-                </>
-              )}
             </tfoot>
           )}
         </table>

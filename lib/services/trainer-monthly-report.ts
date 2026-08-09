@@ -164,9 +164,10 @@ export async function getTrainerMonthlyReport(
   const dedupedPayments = dedupeServiceMonthPayments(servicePayments);
 
   dedupedPayments.sort((a, b) => {
-    const nameCmp = a.subscription.client.name.localeCompare(b.subscription.client.name);
-    if (nameCmp !== 0) return nameCmp;
-    return a.paidAt.getTime() - b.paidAt.getTime();
+    const startCmp =
+      a.subscription.startDate.getTime() - b.subscription.startDate.getTime();
+    if (startCmp !== 0) return startCmp;
+    return a.subscription.client.name.localeCompare(b.subscription.client.name);
   });
 
   const resolution = await resolveSplitForMonth(employeeId, month, year, totalPtRevenue);
@@ -243,6 +244,93 @@ export async function getTrainerMonthlyReport(
       expenses,
       payrollGenerated: !!payroll,
       payrollStatus: payroll?.status ?? null,
+    },
+  };
+}
+
+export async function getTrainerAllPtReport(
+  employeeId: string
+): Promise<TrainerMonthlyReport | null> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: { user: true },
+  });
+  if (!employee) return null;
+
+  const subscriptions = await prisma.pTSubscription.findMany({
+    where: { client: { trainerId: employeeId } },
+    include: {
+      client: true,
+      payments: { orderBy: { installmentIndex: "asc" }, take: 1 },
+    },
+    orderBy: [{ startDate: "asc" }, { client: { name: "asc" } }],
+  });
+
+  const rows: TrainerMonthlyReportRow[] = subscriptions.map((sub) => {
+    const firstPayment = sub.payments[0];
+    const packageAmount = decimalToNumber(sub.amount);
+    const monthsCount = resolvePackageMonths(sub);
+    const installmentIndex = firstPayment?.installmentIndex ?? 0;
+    const collectedAmount = firstPayment ? decimalToNumber(firstPayment.amount) : null;
+
+    return {
+      paymentId: firstPayment?.id ?? sub.id,
+      clientId: sub.clientId,
+      clientName: sub.client.name,
+      subscriptionStart: sub.startDate,
+      subscriptionEnd: sub.endDate,
+      monthsCount,
+      monthlyShare: resolveMonthlyShare(
+        packageAmount,
+        sub.startDate,
+        monthsCount,
+        installmentIndex
+      ),
+      amountPaidThisMonth: collectedAmount,
+      trainerShare: firstPayment ? decimalToNumber(firstPayment.trainerShareAmount) : 0,
+      splitPercent: firstPayment
+        ? decimalToNumber(firstPayment.splitPercentUsed) ||
+          decimalToNumber(employee.revenueSplitBelowTarget)
+        : decimalToNumber(employee.revenueSplitBelowTarget),
+      serviceMonth: firstPayment?.paidAt ?? sub.startDate,
+      paidOn: firstPayment ? getPaymentCollectionDate(firstPayment) : sub.paymentDate,
+      payableAt: firstPayment?.payableAt ?? null,
+      installmentIndex: firstPayment?.installmentIndex ?? null,
+    };
+  });
+
+  const totalTrainerShare = rows.reduce((s, r) => s + r.trainerShare, 0);
+  const baseSalary = decimalToNumber(employee.baseSalary);
+  const now = new Date();
+
+  return {
+    trainer: {
+      id: employee.id,
+      name: employee.user.name,
+      baseSalary,
+      monthlyTarget: employee.monthlyTarget
+        ? decimalToNumber(employee.monthlyTarget)
+        : null,
+      activeSplitPercent: decimalToNumber(employee.revenueSplitBelowTarget),
+      configuredSplitPercent: decimalToNumber(employee.revenueSplitBelowTarget),
+      targetMet: false,
+      hasTarget: !!employee.monthlyTarget,
+      flatSplitPeriod: false,
+      ruleMode: null,
+    },
+    period: { month: now.getMonth() + 1, year: now.getFullYear() },
+    rows,
+    summary: {
+      totalPtRevenue: subscriptions.reduce((s, sub) => s + decimalToNumber(sub.amount), 0),
+      totalTrainerShare,
+      baseSalary,
+      grossPay: baseSalary + totalTrainerShare,
+      netPay: baseSalary + totalTrainerShare,
+      incentives: 0,
+      deductions: 0,
+      expenses: 0,
+      payrollGenerated: false,
+      payrollStatus: null,
     },
   };
 }

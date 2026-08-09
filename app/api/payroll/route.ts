@@ -1,11 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden, badRequest, ok } from "@/lib/api-utils";
 import { canRecordPayroll, canEditSalaryRules } from "@/lib/permissions";
-import { payrollGenerateSchema, payrollPaySchema } from "@/lib/validations";
+import {
+  payrollGenerateSchema,
+  payrollPaySchema,
+  payrollUnpaySchema,
+} from "@/lib/validations";
 import {
   generatePayrollForGym,
   getSalariesOverview,
   markPayrollPaid,
+  markPayrollUnpaid,
   updatePayrollAdjustments,
 } from "@/lib/services/salaries";
 
@@ -50,6 +55,20 @@ export async function POST(request: Request) {
       parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined,
       parsed.data.notes
     );
+    return ok(updated);
+  }
+
+  if (body.action === "unpay") {
+    if (!canRecordPayroll(user.role)) return forbidden();
+    const parsed = payrollUnpaySchema.safeParse(body);
+    if (!parsed.success) return badRequest("Invalid input");
+    const payroll = await prisma.payrollRun.findFirst({
+      where: { id: parsed.data.payrollRunId },
+      include: { employee: true },
+    });
+    if (!payroll || payroll.employee.gymId !== user.gymId) return forbidden();
+    if (payroll.status !== "PAID") return badRequest("Payroll is not marked paid");
+    const updated = await markPayrollUnpaid(parsed.data.payrollRunId);
     return ok(updated);
   }
 

@@ -1,5 +1,5 @@
 /**
- * Create Ojas PT Tracker spreadsheet with 3 tabs in Google Drive.
+ * Create Impackt Fitness PT Tracker spreadsheet with 3 tabs in Google Drive.
  * Run: npx tsx scripts/init-google-sheet.ts
  */
 import { google } from "googleapis";
@@ -87,7 +87,7 @@ async function main() {
   for (const tab of TRAINER_SHEET_TABS) {
     const values = [
       [
-        `Ojas PT Tracker | Trainer: ${tab} | Do not delete header row | Dates: DD/MM/YYYY`,
+        `${PT_SPREADSHEET_NAME} | Trainer: ${tab} | Do not delete header row | Dates: DD/MM/YYYY`,
       ],
       [...SHEET_HEADERS],
       [

@@ -5,15 +5,13 @@ import { writeSheetTab } from "@/lib/google/sheets-write";
 import {
   TRAINER_SHEET_TABS,
   SHEET_HEADERS,
+  PT_SPREADSHEET_NAME,
 } from "@/lib/sheet-config";
 import type { PaymentMode } from "@prisma/client";
 
 function formatFeePaidOn(paymentDate: Date, collectedAt: Date | null): string {
   const paid = collectedAt ?? paymentDate;
-  const paidStr = formatDateDMY(paid);
-  const startStr = formatDateDMY(paymentDate);
-  if (paidStr === startStr) return "yes";
-  return `yes ${paidStr}`;
+  return formatDateDMY(paid);
 }
 
 function formatPaymentModeText(
@@ -90,7 +88,7 @@ export async function fetchTrainerExportRows(
 
 function buildTabRows(trainerName: string, dataRows: ExportRow[]): string[][] {
   const header = [
-    `Ojas PT Tracker | Trainer: ${trainerName} | Master copy — source of truth | Dates: DD/MM/YYYY`,
+    `${PT_SPREADSHEET_NAME} | Trainer: ${trainerName} | Master copy — source of truth | Dates: DD/MM/YYYY`,
   ];
   const rows: string[][] = [header, [...SHEET_HEADERS]];
 

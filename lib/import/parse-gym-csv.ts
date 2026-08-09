@@ -138,6 +138,10 @@ export function parseGymCsv(content: string): ParseGymCsvResult {
       colAmount = findColumnIndex(headers, [/^amount$/]);
       colMonths = findColumnIndex(headers, [/^months$/]);
       colMode = findColumnIndex(headers, [/^mode of payment$/]);
+      if (colMode < 0 && colMonths >= 0) {
+        // Legacy Rohith sheet: payment text sits in the column right after Months.
+        colMode = colMonths + 1;
+      }
       break;
     }
   }

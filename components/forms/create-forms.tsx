@@ -51,6 +51,9 @@ export function CreateUserForm() {
   }
 
   const [role, setRole] = useState("TRAINER");
+  const [employeeType, setEmployeeType] = useState("TRAINER");
+
+  const isHousekeeping = employeeType === "CLEANING";
 
   return (
     <CollapsibleFormCard title="Add Team Member" buttonLabel="Add Member">
@@ -89,18 +92,25 @@ export function CreateUserForm() {
             <select
               id="employeeType"
               name="employeeType"
+              value={employeeType}
+              onChange={(e) => setEmployeeType(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="TRAINER">Trainer</option>
               <option value="MANAGER">Gym Manager</option>
-              <option value="CLEANING">Cleaning Staff</option>
+              <option value="CLEANING">Housekeeping</option>
             </select>
           </div>
+          {isHousekeeping && (
+            <p className="text-sm text-muted-foreground sm:col-span-2">
+              Housekeeping staff are added for salary tracking only — no app login is enabled.
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="baseSalary">Base Salary (₹)</Label>
             <Input id="baseSalary" name="baseSalary" type="number" min={0} defaultValue={0} />
           </div>
-          {role === "TRAINER" && (
+          {role === "TRAINER" && !isHousekeeping && (
             <>
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="monthlyTarget">Monthly PT Target (₹)</Label>

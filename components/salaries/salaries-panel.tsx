@@ -84,6 +84,15 @@ export function SalariesPanel({
     router.refresh();
   }
 
+  async function markUnpaid(payrollRunId: string) {
+    await fetch("/api/payroll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unpay", payrollRunId }),
+    });
+    router.refresh();
+  }
+
   async function saveStaffSalary(employeeId: string, baseSalary: number) {
     await fetch("/api/payroll/salary-override", {
       method: "POST",
@@ -102,7 +111,7 @@ export function SalariesPanel({
         <div>
           <h1 className="text-2xl font-bold">Salaries</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — base salary + PT commission
+            {getMonthName(month)} {year} — base salary + PT share
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +154,7 @@ export function SalariesPanel({
                       <p className="font-medium">{formatCurrency(payroll.baseSalary)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Commission</p>
+                      <p className="text-muted-foreground">PT Share</p>
                       <p className="font-medium">{formatCurrency(payroll.commission)}</p>
                     </div>
                     <div>
@@ -182,6 +191,15 @@ export function SalariesPanel({
                     {canPay && payroll.status === "PENDING" && (
                       <Button size="sm" onClick={() => markPaid(payroll.id)}>
                         Mark Paid
+                      </Button>
+                    )}
+                    {canPay && payroll.status === "PAID" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => markUnpaid(payroll.id)}
+                      >
+                        Mark Unpaid
                       </Button>
                     )}
                   </div>

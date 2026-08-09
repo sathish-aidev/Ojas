@@ -177,7 +177,7 @@ export async function copySpreadsheetWeeklyBackup(
   const res = await drive.files.copy({
     fileId: spreadsheetId,
     requestBody: {
-      name: `Ojas-PT-Tracker-Backup-${label}`,
+      name: `Impackt-Fitness-PT-Tracker-Backup-${label}`,
       parents: [destFolderId],
     },
     fields: "id,webViewLink",

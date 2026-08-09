@@ -17,7 +17,14 @@ export function mapPaymentMode(text: string): MappedPaymentMode {
   if (/\b(cash|given to)\b/.test(lower)) {
     return { mode: "CASH", notes };
   }
-  if (/\b(upi|phone\s*pe|phonepe|phone\s*pay|gpay|google\s*pay|paytm|bhim)\b/.test(lower)) {
+  if (
+    /\b(upi|phone\s*pe|phonepe|phone\s*pay|phonepay|gpay|google\s*pay|paytm|bhim)\b/.test(
+      lower
+    )
+  ) {
+    return { mode: "UPI", notes };
+  }
+  if (/\bpaid\s+to\b/.test(lower)) {
     return { mode: "UPI", notes };
   }
   if (/\b(card|debit|credit|visa|mastercard)\b/.test(lower)) {

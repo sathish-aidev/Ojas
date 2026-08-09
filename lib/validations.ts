@@ -137,6 +137,10 @@ export const payrollPaySchema = z.object({
   notes: z.string().optional(),
 });
 
+export const payrollUnpaySchema = z.object({
+  payrollRunId: z.string(),
+});
+
 export const employeeUpdateSchema = z.object({
   name: z.string().min(2).optional(),
   baseSalary: z.coerce.number().min(0).optional(),

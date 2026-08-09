@@ -35,6 +35,7 @@ export default async function OwnerSalariesPage({ searchParams }: Props) {
             totalCreated?: number;
             totalUpdated?: number;
             totalErrors?: number;
+            tabs?: Array<{ tabName: string; created: number; updated: number; errors: string[] }>;
           },
         }))}
         reportsPath="/owner/reports"

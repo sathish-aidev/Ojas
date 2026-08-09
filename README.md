@@ -1,4 +1,4 @@
-# Ojas
+# Impackt Fitness
 
 Personal training management platform for gym owners, supervisors, and trainers. Built for Indian gyms starting with PT tracking, client progress, and salary/payroll modules.
 
@@ -113,7 +113,7 @@ See the [`docs/`](docs/) folder for:
 | `DATABASE_URL` | Set automatically when Neon storage is linked |
 | `AUTH_SECRET` | Random string (`openssl rand -base64 32`) |
 | `AUTH_URL` | `https://your-project.vercel.app` |
-| `NEXT_PUBLIC_APP_NAME` | `Ojas` |
+| `NEXT_PUBLIC_APP_NAME` | `Impackt Fitness` |
 
 4. Deploy, then initialize the production database (from your machine with production `DATABASE_URL`):
 

@@ -84,6 +84,9 @@ export async function syncTrainerTab(
     for (const e of parsed.errors) {
       result.errors.push(`Row ${e.rowNumber}: ${e.message}`);
     }
+  }
+
+  if (parsed.rows.length === 0) {
     return result;
   }
 

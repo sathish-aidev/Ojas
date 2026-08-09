@@ -25,6 +25,7 @@
     "init:google-sheet": "tsx scripts/init-google-sheet.ts",
     "populate:google-sheet": "tsx scripts/populate-google-sheet.ts",
     "export:db-to-sheet": "tsx scripts/export-db-to-google-sheet.ts",
+    "setup:staff": "tsx scripts/setup-staff.ts",
     "rename:sai-karan": "tsx scripts/rename-sai-karan.ts",
     "verify:app": "tsx scripts/verify-app-health.ts",
     "postinstall": "prisma generate"

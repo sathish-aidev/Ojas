@@ -18,22 +18,25 @@ export async function calculateTrainerCommission(
 function buildPayrollLineItems(
   baseSalary: number,
   commission: number,
-  report: TrainerMonthlyReport | null
+  incentives = 0,
+  deductions = 0,
+  expenses = 0
 ) {
   const items: Array<{ label: string; amount: number; isDeduction: boolean }> = [
     { label: "Base Salary", amount: baseSalary, isDeduction: false },
   ];
 
-  if (report && report.rows.length > 0) {
-    for (const row of report.rows) {
-      items.push({
-        label: `PT — ${row.clientName}`,
-        amount: row.trainerShare,
-        isDeduction: false,
-      });
-    }
-  } else if (commission > 0) {
-    items.push({ label: "PT Commission", amount: commission, isDeduction: false });
+  if (commission > 0) {
+    items.push({ label: "PT Share", amount: commission, isDeduction: false });
+  }
+  if (incentives > 0) {
+    items.push({ label: "Incentives", amount: incentives, isDeduction: false });
+  }
+  if (deductions > 0) {
+    items.push({ label: "Deductions", amount: deductions, isDeduction: true });
+  }
+  if (expenses > 0) {
+    items.push({ label: "Expenses", amount: expenses, isDeduction: true });
   }
 
   return items;
@@ -71,12 +74,29 @@ export async function setMonthlySalaryOverride(
 export async function generatePayrollForGym(gymId: string, month: number, year: number) {
   const employees = await prisma.employee.findMany({
     where: { gymId },
-    include: { user: true },
+    include: {
+      user: true,
+      payrollRuns: {
+        where: { month, year },
+        include: {
+          employee: { include: { user: true } },
+          lineItems: true,
+        },
+      },
+    },
   });
 
   const results = [];
 
   for (const employee of employees) {
+    const existing = employee.payrollRuns[0];
+
+    // Paid runs are locked — mark Unpaid first, then regenerate to apply new splits.
+    if (existing?.status === "PAID") {
+      results.push(existing);
+      continue;
+    }
+
     const defaultSalary = decimalToNumber(employee.baseSalary);
     const baseSalary =
       employee.employeeType !== "TRAINER"
@@ -90,9 +110,18 @@ export async function generatePayrollForGym(gymId: string, month: number, year: 
       commission = report?.summary.totalTrainerShare ?? 0;
     }
 
-    const grossPay = baseSalary + commission;
-    const netPay = grossPay;
-    const lineItems = buildPayrollLineItems(baseSalary, commission, report);
+    const incentives = existing ? decimalToNumber(existing.incentives) : 0;
+    const deductions = existing ? decimalToNumber(existing.deductions) : 0;
+    const expenses = existing ? decimalToNumber(existing.expenses) : 0;
+    const grossPay = baseSalary + commission + incentives;
+    const netPay = grossPay - deductions - expenses;
+    const lineItems = buildPayrollLineItems(
+      baseSalary,
+      commission,
+      incentives,
+      deductions,
+      expenses
+    );
     const reportSnapshot =
       employee.employeeType === "TRAINER" && report ? serializeReport(report) : undefined;
 
@@ -113,17 +142,24 @@ export async function generatePayrollForGym(gymId: string, month: number, year: 
         incentives: 0,
         deductions: 0,
         expenses: 0,
-        grossPay,
-        netPay,
+        grossPay: baseSalary + commission,
+        netPay: baseSalary + commission,
         status: "PENDING",
         reportSnapshot,
-        lineItems: { create: lineItems },
+        lineItems: {
+          create: buildPayrollLineItems(baseSalary, commission),
+        },
       },
       update: {
         baseSalary,
         commission,
+        incentives,
+        deductions,
+        expenses,
         grossPay,
         netPay,
+        status: "PENDING",
+        paidAt: null,
         reportSnapshot,
         lineItems: {
           deleteMany: {},
@@ -162,6 +198,16 @@ export async function markPayrollPaid(payrollRunId: string, paidAt?: Date, notes
   });
 }
 
+export async function markPayrollUnpaid(payrollRunId: string) {
+  return prisma.payrollRun.update({
+    where: { id: payrollRunId },
+    data: {
+      status: "PENDING",
+      paidAt: null,
+    },
+  });
+}
+
 export async function updatePayrollAdjustments(
   payrollRunId: string,
   data: {
@@ -186,20 +232,13 @@ export async function updatePayrollAdjustments(
   const grossPay = baseSalary + commission + incentives;
   const netPay = grossPay - deductions - expenses;
 
-  const ptLineItems = payroll.lineItems.filter(
-    (item) => item.label.startsWith("PT —") || item.label === "PT Commission"
+  const lineItems = buildPayrollLineItems(
+    baseSalary,
+    commission,
+    incentives,
+    deductions,
+    expenses
   );
-  const lineItems = [
-    { label: "Base Salary", amount: baseSalary, isDeduction: false },
-    ...ptLineItems.map((item) => ({
-      label: item.label,
-      amount: decimalToNumber(item.amount),
-      isDeduction: false,
-    })),
-    ...(incentives > 0 ? [{ label: "Incentives", amount: incentives, isDeduction: false }] : []),
-    ...(deductions > 0 ? [{ label: "Deductions", amount: deductions, isDeduction: true }] : []),
-    ...(expenses > 0 ? [{ label: "Expenses", amount: expenses, isDeduction: true }] : []),
-  ];
 
   return prisma.payrollRun.update({
     where: { id: payrollRunId },

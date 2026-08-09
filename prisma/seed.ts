@@ -48,7 +48,7 @@ async function main() {
     data: {
       email: "supervisor@impackt.gym",
       passwordHash,
-      name: "Gym Supervisor",
+      name: "Lokesh",
       role: "SUPERVISOR",
       gymId: gym.id,
       employee: {

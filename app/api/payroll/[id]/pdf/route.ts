@@ -31,6 +31,7 @@ export async function GET(
   }
 
   let reportRows: TrainerMonthlyReportRow[] | undefined;
+  let totalPtRevenue: number | undefined;
 
   function snapshotDate(row: Record<string, unknown>, ...keys: string[]): Date {
     for (const key of keys) {
@@ -43,6 +44,7 @@ export async function GET(
 
   const snapshot = await getTrainerMonthlyReportFromSnapshot(payroll.id);
   if (snapshot) {
+    totalPtRevenue = snapshot.summary.totalPtRevenue;
     reportRows = snapshot.rows.map((row) => {
       const raw = row as TrainerMonthlyReportRow & Record<string, unknown>;
       return {
@@ -72,6 +74,7 @@ export async function GET(
       payroll.year
     );
     reportRows = live?.rows;
+    totalPtRevenue = live?.summary.totalPtRevenue;
   }
 
   const buffer = await generatePayStubPdf({
@@ -94,6 +97,7 @@ export async function GET(
       isDeduction: item.isDeduction,
     })),
     reportRows,
+    totalPtRevenue,
   });
 
   return new Response(new Uint8Array(buffer), {

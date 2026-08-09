@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { getMonthName } from "@/lib/permissions";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -10,49 +11,79 @@ const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
 export function MonthYearPicker({
   month,
   year,
+  showAll = false,
   paramPrefix = "",
 }: {
   month: number;
   year: number;
+  showAll?: boolean;
   paramPrefix?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  function update(nextMonth: number, nextYear: number) {
+  function pushParams(next: URLSearchParams) {
+    router.push(`${pathname}?${next.toString()}`);
+  }
+
+  function updateMonthYear(nextMonth: number, nextYear: number) {
     const params = new URLSearchParams(searchParams.toString());
     params.set(`${paramPrefix}month`, String(nextMonth));
     params.set(`${paramPrefix}year`, String(nextYear));
-    router.push(`${pathname}?${params.toString()}`);
+    params.delete("all");
+    pushParams(params);
+  }
+
+  function toggleShowAll() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (showAll) {
+      params.delete("all");
+    } else {
+      params.set("all", "1");
+    }
+    pushParams(params);
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <select
-        value={month}
-        onChange={(e) => update(Number(e.target.value), year)}
-        className="h-10 rounded-md border bg-background px-3 text-sm"
-        aria-label="Month"
+      {!showAll && (
+        <>
+          <select
+            value={month}
+            onChange={(e) => updateMonthYear(Number(e.target.value), year)}
+            className="h-10 rounded-md border bg-background px-3 text-sm"
+            aria-label="Month"
+          >
+            {MONTHS.map((m) => (
+              <option key={m} value={m}>
+                {getMonthName(m)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={year}
+            onChange={(e) => updateMonthYear(month, Number(e.target.value))}
+            className="h-10 rounded-md border bg-background px-3 text-sm"
+            aria-label="Year"
+          >
+            {YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+      <Button
+        type="button"
+        variant={showAll ? "default" : "outline"}
+        size="sm"
+        className="min-h-10"
+        onClick={toggleShowAll}
       >
-        {MONTHS.map((m) => (
-          <option key={m} value={m}>
-            {getMonthName(m)}
-          </option>
-        ))}
-      </select>
-      <select
-        value={year}
-        onChange={(e) => update(month, Number(e.target.value))}
-        className="h-10 rounded-md border bg-background px-3 text-sm"
-        aria-label="Year"
-      >
-        {YEARS.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
+        {showAll ? `Showing all PTs` : "Show all"}
+      </Button>
     </div>
   );
 }

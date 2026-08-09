@@ -91,9 +91,13 @@ export default async function OwnerTrainersPage() {
                 <p className="font-medium">{u.name}</p>
 
                 <p className="text-sm text-muted-foreground">
-
-                  {u.email} · {u.role} · {u.employee?.employeeType}
-
+                  {u.email} · {u.role}
+                  {u.employee?.employeeType === "CLEANING"
+                    ? " · Housekeeping"
+                    : u.employee?.employeeType
+                      ? ` · ${u.employee.employeeType}`
+                      : ""}
+                  {!u.isActive ? " · Salary tracking only" : ""}
                 </p>
 
               </div>

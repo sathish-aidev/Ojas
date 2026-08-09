@@ -305,6 +305,7 @@ export async function createSubscriptionWithPayment(data: {
           ownerShareAmount: ownerShare,
           splitPercentUsed: splitPercent,
           paymentMode: data.paymentMode,
+          notes: inst.installmentIndex === 0 ? data.notes : undefined,
           proofUrl: inst.installmentIndex === 0 ? data.proofUrl : undefined,
         },
       });
@@ -482,7 +483,7 @@ export async function getRenewalPipeline(gymId: string, days = 30) {
         },
       },
     },
-    orderBy: { endDate: "asc" },
+    orderBy: { startDate: "desc" },
   });
 }
 

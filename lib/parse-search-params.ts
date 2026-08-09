@@ -25,3 +25,11 @@ export function parseTrainerIdFromSearchParams(
   const raw = searchParams.trainer;
   return typeof raw === "string" ? raw : raw?.[0];
 }
+
+export function parseShowAllFromSearchParams(
+  searchParams: Record<string, string | string[] | undefined>
+): boolean {
+  const raw = searchParams.all;
+  const value = typeof raw === "string" ? raw : raw?.[0];
+  return value === "1" || value === "true";
+}

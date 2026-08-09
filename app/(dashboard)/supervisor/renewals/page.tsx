@@ -1,5 +1,9 @@
 import RenewalsPage from "@/components/renewals/renewals-list";
 
-export default function SupervisorRenewalsPage() {
-  return <RenewalsPage />;
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default function SupervisorRenewalsPage({ searchParams }: Props) {
+  return <RenewalsPage searchParams={searchParams} />;
 }

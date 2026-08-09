@@ -4,7 +4,7 @@
  */
 import { google } from "googleapis";
 import { getGoogleAuth, ALL_GOOGLE_SCOPES } from "../lib/google/google-auth";
-import { TRAINER_SHEET_TABS, SHEET_HEADERS } from "../lib/sheet-config";
+import { TRAINER_SHEET_TABS, SHEET_HEADERS, PT_SPREADSHEET_NAME } from "../lib/sheet-config";
 import { findSpreadsheetByName } from "../lib/google/drive-archive";
 
 async function populate(spreadsheetId: string) {
@@ -49,7 +49,7 @@ async function populate(spreadsheetId: string) {
   for (const tab of TRAINER_SHEET_TABS) {
     const values = [
       [
-        `Ojas PT Tracker | Trainer: ${tab} | Do not delete header row | Dates: DD/MM/YYYY`,
+        `${PT_SPREADSHEET_NAME} | Trainer: ${tab} | Do not delete header row | Dates: DD/MM/YYYY`,
       ],
       [...SHEET_HEADERS],
       [
@@ -86,7 +86,7 @@ async function main() {
     console.error(
       "\nNo spreadsheet found. Create one manually in Impakt1_App:\n" +
         "  1. Open folder → New → Google Sheets\n" +
-        "  2. Name it 'Ojas PT Tracker'\n" +
+        "  2. Name it 'Impackt Fitness PT Tracker'\n" +
         "  3. Run: npx tsx scripts/populate-google-sheet.ts <spreadsheetId>\n"
     );
     process.exit(1);

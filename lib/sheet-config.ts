@@ -1,7 +1,7 @@
 /** Google Sheet tab names — must match trainer User.name (case-insensitive). */
 export const TRAINER_SHEET_TABS = ["Rohith", "Sai Karan", "Rahul"] as const;
 
-export const PT_SPREADSHEET_NAME = "Ojas PT Tracker";
+export const PT_SPREADSHEET_NAME = "Impackt Fitness PT Tracker";
 export const REPORTS_FOLDER_NAME = "Reports";
 export const WEEKLY_BACKUPS_FOLDER = "Backups";
 

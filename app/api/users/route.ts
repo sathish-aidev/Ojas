@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     const employeeType = isTrainer
       ? parsed.data.employeeType ?? "TRAINER"
       : parsed.data.employeeType ?? "MANAGER";
+    const isHousekeeping = employeeType === "CLEANING";
 
     const newUser = await prisma.user.create({
       data: {
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
         name: parsed.data.name.trim(),
         role: parsed.data.role,
         gymId: user.gymId,
+        isActive: !isHousekeeping,
         employee: {
           create: {
             gymId: user.gymId,

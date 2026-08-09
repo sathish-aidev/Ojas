@@ -6,34 +6,63 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { formatPdfCurrency, formatGymDisplayName } from "@/lib/pdf/format-pdf";
+import {
+  PT_REPORT_COL as COL,
+  PT_REPORT_TABLE_WIDTH as TABLE_WIDTH,
+  PT_REPORT_LABEL_WIDTH as LABEL_WIDTH,
+  PtReportCell as PtCell,
+} from "@/lib/pdf/pt-report-columns";
 import { getMonthName } from "@/lib/permissions";
 import type { TrainerMonthlyReport } from "@/lib/services/trainer-monthly-report";
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
-  subtitle: { fontSize: 11, color: "#666", marginBottom: 16 },
+  page: { padding: 36, fontSize: 10, fontFamily: "Helvetica", color: "#1a1a1a" },
+  title: { fontSize: 16, fontWeight: "bold", marginBottom: 3 },
+  subtitle: { fontSize: 11, color: "#555", marginBottom: 14 },
+  meta: { fontSize: 9, marginBottom: 12, color: "#666" },
   tableHeader: {
     flexDirection: "row",
+    backgroundColor: "#f5f5f5",
+    borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    paddingBottom: 4,
-    marginBottom: 4,
+    borderColor: "#ccc",
+    paddingVertical: 5,
+    paddingHorizontal: 2,
     fontWeight: "bold",
-    fontSize: 8,
+    fontSize: 7,
+    width: TABLE_WIDTH,
   },
-  tableRow: { flexDirection: "row", paddingVertical: 3, fontSize: 8 },
-  colNum: { width: "4%" },
-  colClient: { width: "14%" },
-  colDate: { width: "9%" },
-  colSmall: { width: "5%", textAlign: "right" },
-  colAmount: { width: "10%", textAlign: "right" },
-  colSplit: { width: "7%", textAlign: "right" },
-  colShare: { width: "10%", textAlign: "right" },
-  footer: { marginTop: 12, borderTopWidth: 1, borderTopColor: "#ccc", paddingTop: 8 },
-  footerRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
-  footerBold: { fontWeight: "bold", fontSize: 11 },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#eee",
+    fontSize: 7,
+    width: TABLE_WIDTH,
+  },
+  tableRowAlt: { backgroundColor: "#fafafa" },
+  footerRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    fontSize: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: "#ddd",
+    width: TABLE_WIDTH,
+  },
+  footerBold: {
+    flexDirection: "row",
+    paddingVertical: 5,
+    paddingHorizontal: 2,
+    fontSize: 8,
+    fontWeight: "bold",
+    borderTopWidth: 1,
+    borderTopColor: "#333",
+    width: TABLE_WIDTH,
+  },
 });
 
 export function TrainerReportDocument({
@@ -48,70 +77,97 @@ export function TrainerReportDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>{gymName}</Text>
+        <Text style={styles.title}>{formatGymDisplayName(gymName)}</Text>
         <Text style={styles.subtitle}>
           PT Report — {trainer.name} — {getMonthName(period.month)} {period.year}
         </Text>
-        <Text style={{ fontSize: 9, marginBottom: 12, color: "#666" }}>
+        <Text style={styles.meta}>
           {trainer.activeSplitPercent}% split · All active PTs this month
           {trainer.hasTarget && trainer.monthlyTarget
-            ? ` · Target ${formatCurrency(trainer.monthlyTarget)}${trainer.targetMet ? " (met)" : ""}`
+            ? ` · Target ${formatPdfCurrency(trainer.monthlyTarget)}${trainer.targetMet ? " (met)" : ""}`
             : ""}
         </Text>
 
         <View style={styles.tableHeader}>
-          <Text style={styles.colNum}>#</Text>
-          <Text style={styles.colClient}>Client</Text>
-          <Text style={styles.colDate}>Start</Text>
-          <Text style={styles.colDate}>End</Text>
-          <Text style={styles.colSmall}>Mo</Text>
-          <Text style={styles.colAmount}>Monthly</Text>
-          <Text style={styles.colDate}>Paid On</Text>
-          <Text style={styles.colAmount}>Paid/mo</Text>
-          <Text style={styles.colSplit}>Split</Text>
-          <Text style={styles.colShare}>Trainer</Text>
+          <PtCell width={COL.num}>#</PtCell>
+          <PtCell width={COL.client}>Client</PtCell>
+          <PtCell width={COL.date}>Start</PtCell>
+          <PtCell width={COL.date}>End</PtCell>
+          <PtCell width={COL.mo} align="right">
+            Mo
+          </PtCell>
+          <PtCell width={COL.monthlyFee} align="right">
+            Monthly Fee
+          </PtCell>
+          <PtCell width={COL.paidOn} align="right">
+            Paid On
+          </PtCell>
+          <PtCell width={COL.monthRevenue} align="right">
+            This Month Revenue
+          </PtCell>
+          <PtCell width={COL.split} align="right">
+            Split
+          </PtCell>
+          <PtCell width={COL.share} align="right">
+            Share
+          </PtCell>
         </View>
 
         {rows.length === 0 ? (
           <Text style={{ color: "#666", marginTop: 8 }}>No active PT clients for this month.</Text>
         ) : (
           rows.map((row, i) => (
-            <View key={row.paymentId} style={styles.tableRow}>
-              <Text style={styles.colNum}>{i + 1}</Text>
-              <Text style={styles.colClient}>{row.clientName}</Text>
-              <Text style={styles.colDate}>{formatDate(row.subscriptionStart)}</Text>
-              <Text style={styles.colDate}>{formatDate(row.subscriptionEnd)}</Text>
-              <Text style={styles.colSmall}>{row.monthsCount}</Text>
-              <Text style={styles.colAmount}>{formatCurrency(row.monthlyShare)}</Text>
-              <Text style={styles.colDate}>{formatDate(row.paidOn)}</Text>
-              <Text style={styles.colAmount}>
+            <View
+              key={row.paymentId}
+              style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}
+            >
+              <PtCell width={COL.num}>{i + 1}</PtCell>
+              <PtCell width={COL.client}>{row.clientName}</PtCell>
+              <PtCell width={COL.date}>{formatDate(row.subscriptionStart)}</PtCell>
+              <PtCell width={COL.date}>{formatDate(row.subscriptionEnd)}</PtCell>
+              <PtCell width={COL.mo} align="right">
+                {row.monthsCount}
+              </PtCell>
+              <PtCell width={COL.monthlyFee} align="right">
+                {formatPdfCurrency(row.monthlyShare)}
+              </PtCell>
+              <PtCell width={COL.paidOn} align="right">
+                {formatDate(row.paidOn)}
+              </PtCell>
+              <PtCell width={COL.monthRevenue} align="right">
                 {row.amountPaidThisMonth !== null
-                  ? formatCurrency(row.amountPaidThisMonth)
+                  ? formatPdfCurrency(row.amountPaidThisMonth)
                   : "—"}
-              </Text>
-              <Text style={styles.colSplit}>{row.splitPercent}%</Text>
-              <Text style={styles.colShare}>{formatCurrency(row.trainerShare)}</Text>
+              </PtCell>
+              <PtCell width={COL.split} align="right">
+                {row.splitPercent}%
+              </PtCell>
+              <PtCell width={COL.share} align="right">
+                {formatPdfCurrency(row.trainerShare)}
+              </PtCell>
             </View>
           ))
         )}
 
         {rows.length > 0 && (
-          <View style={styles.footer}>
+          <View style={{ marginTop: 4 }}>
             <View style={styles.footerRow}>
-              <Text>Total PT Revenue (this month)</Text>
-              <Text>{formatCurrency(summary.totalPtRevenue)}</Text>
+              <PtCell width={LABEL_WIDTH} align="right">
+                Total PT Revenue (this month)
+              </PtCell>
+              <PtCell width={COL.monthRevenue} align="right">
+                {formatPdfCurrency(summary.totalPtRevenue)}
+              </PtCell>
+              <PtCell width={COL.split} />
+              <PtCell width={COL.share} />
             </View>
-            <View style={styles.footerRow}>
-              <Text>Total Trainer Share</Text>
-              <Text>{formatCurrency(summary.totalTrainerShare)}</Text>
-            </View>
-            <View style={styles.footerRow}>
-              <Text>Base Salary</Text>
-              <Text>{formatCurrency(summary.baseSalary)}</Text>
-            </View>
-            <View style={[styles.footerRow, styles.footerBold]}>
-              <Text>Net Payable</Text>
-              <Text>{formatCurrency(summary.netPay)}</Text>
+            <View style={styles.footerBold}>
+              <PtCell width={LABEL_WIDTH + COL.monthRevenue + COL.split} align="right" bold>
+                Total Trainer Share
+              </PtCell>
+              <PtCell width={COL.share} align="right" bold>
+                {formatPdfCurrency(summary.totalTrainerShare)}
+              </PtCell>
             </View>
           </View>
         )}
