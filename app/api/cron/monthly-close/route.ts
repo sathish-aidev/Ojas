@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest } from "@/lib/api-utils";
 import { runMonthlyClose, getPreviousMonth } from "@/lib/services/monthly-close";
+import { cleanEnv } from "@/lib/env";
 
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
+  const cronSecret = cleanEnv(process.env.CRON_SECRET);
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET?.trim();
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return unauthorized();

@@ -1,10 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { fetchSheetTab } from "@/lib/google/sheets-client";
-import {
-  copySpreadsheetWeeklyBackup,
-  ensureWeeklyBackupFolder,
-  getMonthFolderWebLink,
-} from "@/lib/google/drive-archive";
+import { backupPtTrackerSpreadsheet } from "@/lib/google/drive-archive";
 import { TRAINER_SHEET_TABS } from "@/lib/sheet-config";
 import { parseGymSheetRows } from "@/lib/import/parse-gym-sheet";
 
@@ -33,14 +29,21 @@ export async function runWeeklySheetBackup(gymId: string, triggeredBy = "cron") 
   let folderName = "";
   let folderUrl = "";
   let fileUrl: string | null = null;
+  let method: "drive_copy" | "sheet_tabs" | "db_only" = "db_only";
+  let tabNames: string[] | undefined;
+  let driveError: string | null = null;
+  let status: "SUCCESS" | "PARTIAL" = "SUCCESS";
 
   try {
-    const folder = await ensureWeeklyBackupFolder();
-    folderName = folder.folderName;
-    folderUrl = getMonthFolderWebLink(folder.folderId);
-    fileUrl = await copySpreadsheetWeeklyBackup(folder.folderId);
-  } catch {
-    // Drive copy may fail on service-account quota; DB snapshot still protects data
+    const driveResult = await backupPtTrackerSpreadsheet();
+    method = driveResult.method;
+    folderName = driveResult.folderName ?? "";
+    folderUrl = driveResult.folderUrl ?? "";
+    fileUrl = driveResult.fileUrl ?? driveResult.spreadsheetUrl ?? null;
+    tabNames = driveResult.tabNames;
+  } catch (err) {
+    driveError = err instanceof Error ? err.message : String(err);
+    status = "PARTIAL";
   }
 
   await prisma.sheetSyncRun.create({
@@ -48,12 +51,15 @@ export async function runWeeklySheetBackup(gymId: string, triggeredBy = "cron") 
       gymId,
       triggeredBy,
       source: "BACKUP",
-      status: "SUCCESS",
+      status,
       summary: {
         type: "weekly_backup",
+        method,
         folderName,
         folderUrl,
         fileUrl,
+        tabNames,
+        driveError,
         tabRowCounts: snapshots.map((s) => ({
           tab: s.tabName,
           rows: s.rawRows.length,
@@ -70,9 +76,13 @@ export async function runWeeklySheetBackup(gymId: string, triggeredBy = "cron") 
   });
 
   return {
+    status,
+    method,
     folderName,
     folderUrl,
     fileUrl,
+    tabNames,
+    driveError,
     dbSnapshot: true,
   };
 }

@@ -12,6 +12,7 @@ import { generatePayrollForGym, getSalariesOverview } from "@/lib/services/salar
 import { syncAllTrainerTabs } from "@/lib/services/sheet-sync";
 import {
   copySpreadsheetBackup,
+  backupTrainerTabsInSpreadsheet,
   ensureReportsMonthFolder,
   getMonthFolderWebLink,
   uploadPdfToFolder,
@@ -48,9 +49,21 @@ export async function runMonthlyClose(
   try {
     await copySpreadsheetBackup(month, year, folderId);
   } catch (err) {
-    warnings.push(
-      `Sheet backup failed: ${err instanceof Error ? err.message : "unknown"}`
-    );
+    const driveMsg = err instanceof Error ? err.message : "unknown";
+    try {
+      const tabs = await backupTrainerTabsInSpreadsheet(
+        new Date(year, month - 1, 1)
+      );
+      warnings.push(
+        `Drive file copy failed (${driveMsg}); saved backup tabs in sheet instead (${tabs.tabNames.join(", ")})`
+      );
+    } catch (tabErr) {
+      warnings.push(
+        `Sheet backup failed: ${driveMsg}; tab fallback: ${
+          tabErr instanceof Error ? tabErr.message : "unknown"
+        }`
+      );
+    }
   }
 
   const { summary: syncSummary } = await syncAllTrainerTabs(gymId, {

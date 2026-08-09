@@ -15,6 +15,12 @@ type SyncRun = {
     totalCreated?: number;
     totalUpdated?: number;
     totalErrors?: number;
+    type?: string;
+    method?: string;
+    fileUrl?: string | null;
+    folderUrl?: string;
+    driveError?: string | null;
+    tabNames?: string[];
     tabs?: Array<{
       tabName: string;
       created: number;
@@ -33,6 +39,7 @@ export function SheetSyncPanel({
 }) {
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
@@ -70,6 +77,36 @@ export function SheetSyncPanel({
     }
   }
 
+  async function backupNow() {
+    if (!confirm("Create a weekly backup of the PT tracker sheet now?")) return;
+    setBackingUp(true);
+    setLastResult(null);
+    try {
+      const res = await fetch("/api/sync/backup", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setLastResult(data.error ?? "Backup failed");
+      } else if (data.driveError) {
+        setLastResult(
+          `Backup ${data.status}: DB snapshot saved, but Drive/Sheets copy failed.\n${data.driveError}`
+        );
+      } else if (data.method === "sheet_tabs") {
+        setLastResult(
+          `Backup OK (sheet tabs): ${(data.tabNames ?? []).join(", ")}\n${data.fileUrl ?? ""}`
+        );
+      } else {
+        setLastResult(
+          `Backup OK (Drive copy): ${data.folderName ?? ""}\n${data.fileUrl ?? data.folderUrl ?? ""}`
+        );
+      }
+      router.refresh();
+    } catch {
+      setLastResult("Backup failed — check Google credentials in Vercel env vars");
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
   async function restore(syncRunId: string) {
     if (!confirm("Restore app data from this snapshot? Current sheet data will be reapplied.")) {
       return;
@@ -97,9 +134,19 @@ export function SheetSyncPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button onClick={syncNow} disabled={syncing} className="min-h-11">
-          {syncing ? "Syncing…" : "Sync from Google Sheets"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={syncNow} disabled={syncing || backingUp} className="min-h-11">
+            {syncing ? "Syncing…" : "Sync from Google Sheets"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={backupNow}
+            disabled={syncing || backingUp}
+            className="min-h-11"
+          >
+            {backingUp ? "Backing up…" : "Run sheet backup"}
+          </Button>
+        </div>
         {lastResult && (
           <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 text-sm text-muted-foreground">
             {lastResult}
@@ -108,8 +155,9 @@ export function SheetSyncPanel({
 
         {runs.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Recent syncs</p>
-            {runs.slice(0, 5).map((run) => {
+            <p className="text-sm font-medium">Recent syncs & backups</p>
+            {runs.slice(0, 8).map((run) => {
+              const isBackup = run.source === "BACKUP" || run.summary.type === "weekly_backup";
               const tabErrors =
                 run.summary.tabs?.flatMap((tab) =>
                   tab.errors.map((err) => `${tab.tabName}: ${err}`)
@@ -120,19 +168,43 @@ export function SheetSyncPanel({
                 <div key={run.id} className="rounded-md border p-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={run.status === "SUCCESS" ? "success" : "warning"}>
                           {run.status}
                         </Badge>
+                        {isBackup && <Badge variant="secondary">Backup</Badge>}
                         <span className="text-sm text-muted-foreground">
                           {new Date(run.createdAt).toLocaleString("en-IN")}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        +{run.summary.totalCreated ?? 0} / ~{run.summary.totalUpdated ?? 0} updated
-                        {(run.summary.totalErrors ?? 0) > 0 &&
-                          ` · ${run.summary.totalErrors} errors`}
+                        {isBackup
+                          ? [
+                              run.summary.method === "sheet_tabs"
+                                ? "Saved as sheet tabs"
+                                : run.summary.method === "drive_copy"
+                                  ? "Drive file copy"
+                                  : "DB snapshot only",
+                              run.summary.driveError ? `· ${run.summary.driveError}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" ")
+                          : `+${run.summary.totalCreated ?? 0} / ~${run.summary.totalUpdated ?? 0} updated${
+                              (run.summary.totalErrors ?? 0) > 0
+                                ? ` · ${run.summary.totalErrors} errors`
+                                : ""
+                            }`}
                       </p>
+                      {isBackup && run.summary.fileUrl && (
+                        <a
+                          href={run.summary.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-xs text-primary underline"
+                        >
+                          Open backup
+                        </a>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       {tabErrors.length > 0 && (
@@ -144,7 +216,7 @@ export function SheetSyncPanel({
                           {expanded ? "Hide errors" : "Show errors"}
                         </Button>
                       )}
-                      {canRestore && (
+                      {canRestore && !isBackup && (
                         <Button
                           variant="outline"
                           size="sm"

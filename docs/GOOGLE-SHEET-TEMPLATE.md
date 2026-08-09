@@ -88,9 +88,9 @@ The Google Sheet is the **source of truth**. Add new clients in the sheet or via
 
 ## Backups
 
-
-
-- **Weekly** (Sundays): full sheet copied to `Backups/YYYY-MM-DD/` in Drive
-
-- **Monthly** (1st): sheet backup + payroll PDFs in `Reports/YYYY-MM/`
+- **Weekly** (Sundays 03:00 UTC): tries a full Drive copy into `Backups/YYYY-MM-DD/`. If the service account cannot own Drive files (common on personal Gmail — `storageQuotaExceeded`), it falls back to copying trainer tabs into the PT tracker as hidden sheets named `Backup YYYY-MM-DD {Trainer}` (or into `GOOGLE_BACKUP_SPREADSHEET_ID` if set). A DB snapshot is always saved.
+- **Monthly** (1st): same sheet backup + payroll PDFs in `Reports/YYYY-MM/`
+- **Manual:** Salaries → **Run sheet backup**
+- Ensure `CRON_SECRET` is set in Vercel (Vercel Cron sends it as `Authorization: Bearer …`). Without it, scheduled backups return 401.
+- Prefer a Shared Drive for `GOOGLE_DRIVE_FOLDER_ID` if you want real file copies in `Backups/`.
 

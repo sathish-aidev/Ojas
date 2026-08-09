@@ -1,16 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest } from "@/lib/api-utils";
 import { runWeeklySheetBackup } from "@/lib/services/weekly-sheet-backup";
+import { cleanEnv } from "@/lib/env";
 
 export const maxDuration = 60;
 
-export async function GET(request: Request) {
+function authorizeCron(request: Request): boolean {
+  const cronSecret = cleanEnv(process.env.CRON_SECRET);
+  if (!cronSecret) return false;
   const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET?.trim();
+  return authHeader === `Bearer ${cronSecret}`;
+}
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return unauthorized();
-  }
+export async function GET(request: Request) {
+  if (!authorizeCron(request)) return unauthorized();
 
   const gym = await prisma.gym.findFirst();
   if (!gym) return badRequest("No gym configured");

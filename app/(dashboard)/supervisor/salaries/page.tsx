@@ -34,6 +34,12 @@ export default async function SupervisorSalariesPage({ searchParams }: Props) {
             totalCreated?: number;
             totalUpdated?: number;
             totalErrors?: number;
+            type?: string;
+            method?: string;
+            fileUrl?: string | null;
+            folderUrl?: string;
+            driveError?: string | null;
+            tabNames?: string[];
             tabs?: Array<{ tabName: string; created: number; updated: number; errors: string[] }>;
           },
         }))}
