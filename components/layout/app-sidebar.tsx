@@ -12,11 +12,19 @@ import {
   TrendingUp,
   FileBarChart,
   ClipboardList,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> };
+
+function navActive(pathname: string, href: string) {
+  if (pathname === href) return true;
+  if (href === "/owner" || href === "/supervisor" || href === "/trainer") return false;
+  return pathname.startsWith(href + "/");
+}
 
 function getNavItems(role?: UserRole): NavItem[] {
   switch (role) {
@@ -28,6 +36,7 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/owner/renewals", label: "Renewals", icon: ClipboardList },
         { href: "/owner/reports", label: "PT Reports", icon: FileBarChart },
         { href: "/owner/salaries", label: "Salaries", icon: DollarSign },
+        { href: "/owner/revenue", label: "Revenue", icon: Wallet },
         { href: "/owner/settings", label: "Settings", icon: Settings },
       ];
     case "SUPERVISOR":
@@ -38,6 +47,7 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/supervisor/renewals", label: "Renewals", icon: ClipboardList },
         { href: "/supervisor/reports", label: "PT Reports", icon: FileBarChart },
         { href: "/supervisor/salaries", label: "Salaries", icon: DollarSign },
+        { href: "/supervisor/expenses", label: "Expenses", icon: Receipt },
       ];
     case "TRAINER":
       return [
@@ -60,7 +70,7 @@ export function AppSidebar({ role }: { role?: UserRole }) {
       <nav className="flex flex-col gap-1 rounded-xl border bg-card p-2">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const active = navActive(pathname, item.href);
           return (
             <Link
               key={item.href}

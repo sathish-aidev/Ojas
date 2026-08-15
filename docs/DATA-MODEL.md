@@ -12,8 +12,10 @@ PTSubscription 1──* Payment
 Client 1──* Session
 Client 1──* Measurement / Goal / ClientNote / DietProgram / ProgressPhoto
 Employee 1──* TrainerSlot
-Employee 1──* PayrollRun
+Gym 1──* PayrollRun
 PayrollRun 1──* PayrollLineItem
+Gym 1──* CultSettlement
+Gym 1──* GymExpense
 ```
 
 ---
@@ -107,6 +109,7 @@ See `prisma/schema.prisma` for full field definitions.
 3. **Session completion:** Increments `sessionsUsed` on active subscription if `sessionsTotal` set
 4. **Payroll commission:** Sum of `trainerShareAmount` for trainer's clients in that month
 5. **Supervisor guard:** Cannot PATCH employee split/salary or POST /api/users
+6. **Monthly P&L:** Cult Partner Share (or Tax Invoice Gross Total if Partner Share is empty) + owner PT share − manual expenses − PAID payroll netPay. See `docs/REVENUE.md`.
 
 ---
 

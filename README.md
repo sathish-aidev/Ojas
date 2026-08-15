@@ -101,6 +101,7 @@ See the [`docs/`](docs/) folder for:
 - [DATA-MODEL.md](docs/DATA-MODEL.md)
 - [API-SPEC.md](docs/API-SPEC.md)
 - [ROADMAP.md](docs/ROADMAP.md)
+- [REVENUE.md](docs/REVENUE.md)
 
 ## Deployment (Vercel + Neon)
 

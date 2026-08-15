@@ -11,6 +11,8 @@ import {
   UserCircle,
   TrendingUp,
   FileBarChart,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -27,7 +29,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       return [
         { href: "/owner", label: "Home", icon: LayoutDashboard },
         { href: "/owner/clients", label: "Clients", icon: UserCircle },
-        { href: "/owner/trainers", label: "Team", icon: Users },
+        { href: "/owner/revenue", label: "Revenue", icon: Wallet },
         { href: "/owner/salaries", label: "Pay", icon: DollarSign },
         { href: "/owner/settings", label: "Settings", icon: Settings },
       ];
@@ -35,7 +37,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       return [
         { href: "/supervisor", label: "Home", icon: LayoutDashboard },
         { href: "/supervisor/clients", label: "Clients", icon: UserCircle },
-        { href: "/supervisor/trainers", label: "Team", icon: Users },
+        { href: "/supervisor/expenses", label: "Expenses", icon: Receipt },
         { href: "/supervisor/reports", label: "Reports", icon: FileBarChart },
         { href: "/supervisor/salaries", label: "Pay", icon: DollarSign },
       ];
@@ -69,7 +71,10 @@ export function MobileBottomNav({ role }: { role?: UserRole }) {
           const Icon = item.icon;
           const active =
             pathname === item.href ||
-            (item.href !== "/trainer/clients/new" &&
+            (item.href !== "/owner" &&
+              item.href !== "/supervisor" &&
+              item.href !== "/trainer" &&
+              item.href !== "/trainer/clients/new" &&
               pathname.startsWith(item.href + "/"));
           return (
             <Link

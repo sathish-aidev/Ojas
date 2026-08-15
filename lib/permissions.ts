@@ -31,6 +31,18 @@ export function canSyncFromSheets(role: UserRole) {
   return role === "OWNER" || role === "SUPERVISOR";
 }
 
+export function canManageExpenses(role: UserRole) {
+  return role === "OWNER" || role === "SUPERVISOR";
+}
+
+export function canManageCultSettlements(role: UserRole) {
+  return role === "OWNER";
+}
+
+export function canViewRevenueDashboard(role: UserRole) {
+  return role === "OWNER";
+}
+
 export function canRestoreSheetSync(role: UserRole) {
   return role === "OWNER";
 }

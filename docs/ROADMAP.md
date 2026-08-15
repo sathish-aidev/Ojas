@@ -30,6 +30,15 @@
 - Mobile-responsive trainer UI
 - Seed data, README, deployment notes
 
+## Phase 5b — Monthly Revenue / P&L
+- [x] Cult Partner Share (Tax Invoice Gross Total as interim)
+- [x] Owner PT share in P&L
+- [x] Gym expenses (Owner + Supervisor) + Expenses sheet
+- [x] PAID payroll netPay in monthly result
+- [ ] Month lock after historic catch-up
+- [ ] Choose DB-only expenses once history is complete
+- [ ] Cult PDF parse / Drive folder watch
+
 ## Phase 6 — SaaS Prep (Next)
 - [ ] Multi-gym tenant onboarding
 - [ ] Seat limits (5-user plan)

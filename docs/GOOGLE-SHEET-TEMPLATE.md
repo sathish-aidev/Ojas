@@ -94,3 +94,18 @@ The Google Sheet is the **source of truth**. Add new clients in the sheet or via
 - Ensure `CRON_SECRET` is set in Vercel (Vercel Cron sends it as `Authorization: Bearer …`). Without it, scheduled backups return 401.
 - Prefer a Shared Drive for `GOOGLE_DRIVE_FOLDER_ID` if you want real file copies in `Backups/`.
 
+## Expenses tab
+
+Tab name: **Expenses** (same spreadsheet unless `GOOGLE_EXPENSES_SPREADSHEET_ID` is set).
+
+Row 1 — instructions. Row 2 — headers:
+
+| Id | Date | Category | Description | Amount | Payment Mode | Paid By | Notes |
+
+- Dates: `DD/MM/YYYY`
+- Category: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others
+- Leave **Id** blank for new historic rows. After **Sync from expense sheet**, the app writes Ids back.
+- App and sheet are both editable until historic months are complete. See `docs/REVENUE.md`.
+- Setup: `npm run init:revenue`
+
+

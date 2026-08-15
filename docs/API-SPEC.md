@@ -87,6 +87,22 @@ Auth: Session cookie (NextAuth JWT)
 
 ---
 
+## Revenue & expenses
+
+| Method | Path | Body / query | Roles |
+|--------|------|--------------|-------|
+| GET | `/revenue/summary` | `?month=&year=&trend=1` | Owner |
+| GET | `/revenue/cult-settlements` | `?month=&year=` | Owner |
+| POST | `/revenue/cult-settlements` | cultSettlementSchema | Owner |
+| DELETE | `/revenue/cult-settlements/[id]` | — | Owner |
+| GET | `/expenses` | `?month=&year=` | Owner, Supervisor |
+| POST | `/expenses` | gymExpenseSchema | Owner, Supervisor |
+| PATCH | `/expenses/[id]` | partial gymExpenseSchema | Owner, Supervisor |
+| DELETE | `/expenses/[id]` | — | Owner, Supervisor |
+| POST | `/expenses/sync` | merge Expenses sheet → DB | Owner, Supervisor |
+
+---
+
 ## Gym Settings
 
 | Method | Path | Body |

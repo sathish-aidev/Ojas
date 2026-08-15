@@ -6,18 +6,20 @@ import { getMonthName } from "@/lib/permissions";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
+const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - 5 + i);
 
 export function MonthYearPicker({
   month,
   year,
   showAll = false,
   paramPrefix = "",
+  enableShowAll = true,
 }: {
   month: number;
   year: number;
   showAll?: boolean;
   paramPrefix?: string;
+  enableShowAll?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -75,15 +77,17 @@ export function MonthYearPicker({
           </select>
         </>
       )}
-      <Button
-        type="button"
-        variant={showAll ? "default" : "outline"}
-        size="sm"
-        className="min-h-10"
-        onClick={toggleShowAll}
-      >
-        {showAll ? `Showing all PTs` : "Show all"}
-      </Button>
+      {enableShowAll && (
+        <Button
+          type="button"
+          variant={showAll ? "default" : "outline"}
+          size="sm"
+          className="min-h-10"
+          onClick={toggleShowAll}
+        >
+          {showAll ? `Showing all PTs` : "Show all"}
+        </Button>
+      )}
     </div>
   );
 }

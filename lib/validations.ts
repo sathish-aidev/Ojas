@@ -229,6 +229,62 @@ export const gymSettingsSchema = z.object({
   renewalReminderDays: z.coerce.number().int().min(1).max(60),
 });
 
+const optionalFiniteNumber = z.preprocess((val) => {
+  const v = emptyToUndefined(val);
+  if (v === undefined) return undefined;
+  const n = typeof v === "number" ? v : Number(String(v).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : v;
+}, z.number().finite().optional());
+
+const optionalUrl = z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional());
+
+export const expenseCategorySchema = z.enum([
+  "RENT",
+  "POWER_BILL",
+  "REPAIRS",
+  "SUPPLIES",
+  "INTERNET",
+  "PHONE",
+  "SALARIES",
+  "MAINTENANCE",
+  "OTHERS",
+]);
+
+export const gymExpenseSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+  category: expenseCategorySchema,
+  description: z.string().trim().min(1, "Description required").max(500),
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  paymentMode: paymentModeSchema.optional(),
+  paidBy: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),
+  notes: z.preprocess(emptyToUndefined, z.string().trim().max(1000).optional()),
+});
+
+export const gymExpenseUpdateSchema = gymExpenseSchema.partial();
+
+export const cultSettlementSchema = z.object({
+  month: z.coerce.number().int().min(1).max(12),
+  year: z.coerce.number().int().min(2020).max(2100),
+  periodStart: z.preprocess(emptyToUndefined, z.string().optional()),
+  periodEnd: z.preprocess(emptyToUndefined, z.string().optional()),
+  partnerShare: optionalFiniteNumber,
+  taxInvoiceGrossTotal: optionalFiniteNumber,
+  saleOfNewPacks: optionalFiniteNumber,
+  walkInsOuts: optionalFiniteNumber,
+  otherAdjustments: optionalFiniteNumber,
+  platformFees: optionalFiniteNumber,
+  totalRevenue: optionalFiniteNumber,
+  cmCharges: optionalFiniteNumber,
+  maintInfraCharges: optionalFiniteNumber,
+  centerCollections: optionalFiniteNumber,
+  midMonthPayment: optionalFiniteNumber,
+  tds: optionalFiniteNumber,
+  grossPayable: optionalFiniteNumber,
+  notes: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
+  settlementDriveUrl: optionalUrl,
+  taxInvoiceDriveUrl: optionalUrl,
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;

@@ -11,6 +11,10 @@ import {
   WEEKLY_BACKUPS_FOLDER,
   TRAINER_SHEET_TABS,
   BACKUP_TAB_PREFIX,
+  EXPENSES_TAB_NAME,
+  CULT_INVOICES_FOLDER,
+  CULT_SETTLEMENT_FOLDER,
+  CULT_TAX_INVOICE_FOLDER,
 } from "@/lib/sheet-config";
 import { getMonthName } from "@/lib/permissions";
 import { getOwnerReportEmail } from "@/lib/sheet-config";
@@ -163,6 +167,22 @@ export function getMonthFolderWebLink(folderId: string): string {
   return `https://drive.google.com/drive/folders/${folderId}`;
 }
 
+export async function ensureCultInvoiceFolders(): Promise<{
+  cultInvoicesUrl: string;
+  settlementUrl: string;
+  taxInvoiceUrl: string;
+}> {
+  const rootId = getDriveFolderId();
+  const cultId = await ensureFolder(rootId, CULT_INVOICES_FOLDER);
+  const settlementId = await ensureFolder(cultId, CULT_SETTLEMENT_FOLDER);
+  const taxId = await ensureFolder(cultId, CULT_TAX_INVOICE_FOLDER);
+  return {
+    cultInvoicesUrl: getMonthFolderWebLink(cultId),
+    settlementUrl: getMonthFolderWebLink(settlementId),
+    taxInvoiceUrl: getMonthFolderWebLink(taxId),
+  };
+}
+
 function formatBackupDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -240,7 +260,9 @@ export async function backupTrainerTabsInSpreadsheet(
 
   const created: string[] = [];
 
-  for (const tabName of TRAINER_SHEET_TABS) {
+  const tabsToBackup = [...TRAINER_SHEET_TABS, EXPENSES_TAB_NAME];
+
+  for (const tabName of tabsToBackup) {
     const sourceSheet = sourceMeta.data.sheets?.find(
       (s) => s.properties?.title === tabName
     );
@@ -290,7 +312,7 @@ export async function backupTrainerTabsInSpreadsheet(
   }
 
   if (created.length === 0) {
-    throw new Error("No trainer tabs found to back up in the PT tracker spreadsheet");
+    throw new Error("No trainer or expenses tabs found to back up in the spreadsheet");
   }
 
   await pruneOldBackupTabs(destId, 56);

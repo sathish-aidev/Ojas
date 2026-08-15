@@ -85,6 +85,23 @@ enum SplitRuleMode {
   TARGET_BASED
 }
 
+enum ExpenseCategory {
+  RENT
+  POWER_BILL
+  REPAIRS
+  SUPPLIES
+  INTERNET
+  PHONE
+  SALARIES
+  MAINTENANCE
+  OTHERS
+}
+
+enum ExpenseSource {
+  APP
+  IMPORT
+}
+
 model Gym {
   id                   String   @id @default(cuid())
   name                 String
@@ -98,6 +115,8 @@ model Gym {
   clients    Client[]
   slots      TrainerSlot[]
   sheetSyncRuns SheetSyncRun[]
+  cultSettlements CultSettlement[]
+  gymExpenses     GymExpense[]
 }
 
 model User {
@@ -457,4 +476,63 @@ model MonthlySalaryOverride {
 
   @@unique([employeeId, month, year])
   @@index([year, month])
+}
+
+model CultSettlement {
+  id     String @id @default(cuid())
+  gymId  String
+  month  Int
+  year   Int
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  partnerShare           Decimal? @db.Decimal(12, 2)
+  taxInvoiceGrossTotal   Decimal? @db.Decimal(12, 2)
+  saleOfNewPacks         Decimal? @db.Decimal(12, 2)
+  walkInsOuts            Decimal? @db.Decimal(12, 2)
+  otherAdjustments       Decimal? @db.Decimal(12, 2)
+  platformFees           Decimal? @db.Decimal(12, 2)
+  totalRevenue           Decimal? @db.Decimal(12, 2)
+  cmCharges              Decimal? @db.Decimal(12, 2)
+  maintInfraCharges      Decimal? @db.Decimal(12, 2)
+  centerCollections      Decimal? @db.Decimal(12, 2)
+  midMonthPayment        Decimal? @db.Decimal(12, 2)
+  tds                    Decimal? @db.Decimal(12, 2)
+  grossPayable           Decimal? @db.Decimal(12, 2)
+  breakdown              Json?
+  notes                  String?
+  settlementDriveUrl     String?
+  taxInvoiceDriveUrl     String?
+  enteredByUserId        String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@unique([gymId, month, year])
+  @@index([gymId, year, month])
+}
+
+model GymExpense {
+  id              String           @id @default(cuid())
+  gymId           String
+  date            DateTime
+  month           Int
+  year            Int
+  category        ExpenseCategory
+  description     String
+  amount          Decimal          @db.Decimal(12, 2)
+  paymentMode     PaymentMode?
+  paidBy          String?
+  notes           String?
+  createdByUserId String
+  updatedByUserId String?
+  source          ExpenseSource    @default(APP)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  gym Gym @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId, year, month])
+  @@index([gymId, date])
 }

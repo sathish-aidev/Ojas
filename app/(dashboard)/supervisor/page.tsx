@@ -22,6 +22,12 @@ export default async function SupervisorDashboardPage() {
         <p className="text-muted-foreground">Operations and renewals overview</p>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <Button asChild>
+          <Link href="/supervisor/expenses">Gym expenses</Link>
+        </Button>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Trainers" value={stats.trainerCount.toString()} />
         <StatCard title="Active Clients" value={stats.activeClients.toString()} />
