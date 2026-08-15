@@ -35,9 +35,10 @@
 - [x] Owner PT share in P&L
 - [x] Gym expenses (Owner + Supervisor) + Expenses sheet
 - [x] PAID payroll netPay in monthly result
+- [x] Scan Cult invoice PDFs from Drive and match months
 - [ ] Month lock after historic catch-up
 - [ ] Choose DB-only expenses once history is complete
-- [ ] Cult PDF parse / Drive folder watch
+- [ ] Cult PDF OCR for scanned image invoices
 
 ## Phase 6 — SaaS Prep (Next)
 - [ ] Multi-gym tenant onboarding

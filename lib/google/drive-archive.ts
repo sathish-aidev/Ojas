@@ -36,9 +36,102 @@ async function transferFileToOwner(drive: Awaited<ReturnType<typeof getDriveClie
   }
 }
 
-async function getDriveClient() {
+export async function getDriveClient() {
   const auth = getGoogleAuth(ALL_GOOGLE_SCOPES);
   return google.drive({ version: "v3", auth });
+}
+
+export type DriveFileMeta = {
+  id: string;
+  name: string;
+  mimeType: string;
+  webViewLink: string | null;
+  modifiedTime: string | null;
+};
+
+function toDriveFileMeta(file: {
+  id?: string | null;
+  name?: string | null;
+  mimeType?: string | null;
+  webViewLink?: string | null;
+  modifiedTime?: string | null;
+}): DriveFileMeta | null {
+  if (!file.id || !file.name) return null;
+  return {
+    id: file.id,
+    name: file.name,
+    mimeType: file.mimeType ?? "application/octet-stream",
+    webViewLink: file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`,
+    modifiedTime: file.modifiedTime ?? null,
+  };
+}
+
+export async function listDriveChildren(folderId: string): Promise<DriveFileMeta[]> {
+  const drive = await getDriveClient();
+  const files: DriveFileMeta[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: "nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime)",
+      pageSize: 100,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    for (const file of res.data.files ?? []) {
+      const meta = toDriveFileMeta(file);
+      if (meta) files.push(meta);
+    }
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return files;
+}
+
+export async function searchDrivePdfsByName(terms: string[]): Promise<DriveFileMeta[]> {
+  const drive = await getDriveClient();
+  const nameQuery = terms.map((term) => `name contains '${term.replace(/'/g, "\\'")}'`).join(" or ");
+  const q = `(${nameQuery}) and trashed=false`;
+  const files: DriveFileMeta[] = [];
+  let pageToken: string | undefined;
+  const listOpts = {
+    q,
+    fields: "nextPageToken,files(id,name,mimeType,webViewLink,modifiedTime)",
+    pageSize: 100,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  } as const;
+
+  const first = await drive.files.list({
+    ...listOpts,
+    corpora: "allDrives",
+  }).catch(() => drive.files.list(listOpts));
+
+  const collect = (res: typeof first) => {
+    for (const file of res.data.files ?? []) {
+      const meta = toDriveFileMeta(file);
+      if (meta) files.push(meta);
+    }
+    return res.data.nextPageToken ?? undefined;
+  };
+
+  pageToken = collect(first);
+  while (pageToken) {
+    const res = await drive.files.list({ ...listOpts, pageToken }).catch(async () => {
+      return drive.files.list({ ...listOpts, pageToken, corpora: undefined });
+    });
+    pageToken = collect(res);
+  }
+  return files;
+}
+
+export async function downloadDriveFileBuffer(fileId: string): Promise<Buffer> {
+  const drive = await getDriveClient();
+  const res = await drive.files.get(
+    { fileId, alt: "media", supportsAllDrives: true },
+    { responseType: "arraybuffer" }
+  );
+  return Buffer.from(res.data as ArrayBuffer);
 }
 
 function driveListOpts(q: string) {

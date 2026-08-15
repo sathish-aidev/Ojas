@@ -7,7 +7,7 @@ import {
   getRevenueTrend,
 } from "@/lib/services/revenue-summary";
 import { listExpenses } from "@/lib/services/expenses";
-import { ensureCultInvoiceFolders } from "@/lib/google/drive-archive";
+import { scanCultInvoicesFromDrive } from "@/lib/services/cult-drive-sync";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { RevenueDashboard } from "@/components/revenue/revenue-dashboard";
 import { CultSettlementForm } from "@/components/revenue/cult-settlement-form";
@@ -18,30 +18,37 @@ type Props = {
 };
 
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 export default async function OwnerRevenuePage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
   const { month, year } = parseMonthYearFromSearchParams(params);
 
-  const [summary, trend, expenses, folders] = await Promise.all([
+  const scan = await scanCultInvoicesFromDrive(user.gymId, user.id).catch((err: unknown) => ({
+    error: err instanceof Error ? err.message : "Could not read Drive invoices",
+    folders: null as null,
+    files: [],
+    linked: 0,
+    parsed: 0,
+    unmatched: [],
+    warnings: [] as string[],
+  }));
+
+  const [summary, trend, expenses] = await Promise.all([
     getRevenueMonthSummary(user.gymId, month, year),
     getRevenueTrend(user.gymId, month, year),
     listExpenses(user.gymId, month, year),
-    ensureCultInvoiceFolders().catch((err: unknown) => ({
-      error: err instanceof Error ? err.message : "Could not create Drive folders",
-    })),
   ]);
 
-  const folderLinks =
-    folders && "settlementUrl" in folders
-      ? {
-          cultInvoicesUrl: folders.cultInvoicesUrl,
-          settlementUrl: folders.settlementUrl,
-          taxInvoiceUrl: folders.taxInvoiceUrl,
-        }
-      : null;
-  const folderError = folders && "error" in folders ? folders.error : null;
+  const folderLinks = scan.folders
+    ? {
+        cultInvoicesUrl: scan.folders.cultInvoicesUrl,
+        settlementUrl: scan.folders.settlementUrl,
+        taxInvoiceUrl: scan.folders.taxInvoiceUrl,
+      }
+    : null;
+  const folderError = "error" in scan ? scan.error : null;
 
   return (
     <div className="space-y-6">
@@ -72,6 +79,13 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         settlement={summary.settlement}
         folders={folderLinks}
         folderError={folderError}
+        driveFiles={scan.files}
+        scanWarnings={scan.warnings}
+        scanSummary={
+          !folderError && scan.linked > 0
+            ? `Loaded ${scan.linked} Drive file(s)${scan.parsed ? `, read ${scan.parsed} PDF(s)` : ""}.`
+            : null
+        }
       />
 
       <div id="expenses">

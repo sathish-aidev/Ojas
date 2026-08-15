@@ -92,6 +92,33 @@ export function serializeCultSettlement(row: CultSettlement): SerializedCultSett
   };
 }
 
+function toPartialUpdate(input: Partial<CultSettlementInput>): Prisma.CultSettlementUpdateInput {
+  const data: Prisma.CultSettlementUpdateInput = {};
+  if (input.periodStart !== undefined) data.periodStart = parseOptionalDate(input.periodStart);
+  if (input.periodEnd !== undefined) data.periodEnd = parseOptionalDate(input.periodEnd);
+  if (input.partnerShare !== undefined) data.partnerShare = input.partnerShare;
+  if (input.taxInvoiceGrossTotal !== undefined) data.taxInvoiceGrossTotal = input.taxInvoiceGrossTotal;
+  if (input.saleOfNewPacks !== undefined) data.saleOfNewPacks = input.saleOfNewPacks;
+  if (input.walkInsOuts !== undefined) data.walkInsOuts = input.walkInsOuts;
+  if (input.otherAdjustments !== undefined) data.otherAdjustments = input.otherAdjustments;
+  if (input.platformFees !== undefined) data.platformFees = input.platformFees;
+  if (input.totalRevenue !== undefined) data.totalRevenue = input.totalRevenue;
+  if (input.cmCharges !== undefined) data.cmCharges = input.cmCharges;
+  if (input.maintInfraCharges !== undefined) data.maintInfraCharges = input.maintInfraCharges;
+  if (input.centerCollections !== undefined) data.centerCollections = input.centerCollections;
+  if (input.midMonthPayment !== undefined) data.midMonthPayment = input.midMonthPayment;
+  if (input.tds !== undefined) data.tds = input.tds;
+  if (input.grossPayable !== undefined) data.grossPayable = input.grossPayable;
+  if (input.notes !== undefined) data.notes = input.notes.trim() || null;
+  if (input.settlementDriveUrl !== undefined) {
+    data.settlementDriveUrl = input.settlementDriveUrl.trim() || null;
+  }
+  if (input.taxInvoiceDriveUrl !== undefined) {
+    data.taxInvoiceDriveUrl = input.taxInvoiceDriveUrl.trim() || null;
+  }
+  return data;
+}
+
 function toUpdateData(input: CultSettlementInput): Prisma.CultSettlementUpdateInput {
   const data: Prisma.CultSettlementUpdateInput = {
     periodStart: parseOptionalDate(input.periodStart),
@@ -178,6 +205,75 @@ export async function upsertCultSettlement(
     },
   });
   return serializeCultSettlement(row);
+}
+
+export async function mergeCultSettlement(
+  gymId: string,
+  userId: string,
+  month: number,
+  year: number,
+  patch: Partial<CultSettlementInput>,
+  options?: { overwriteUrls?: boolean; overwriteFigures?: boolean }
+) {
+  const existing = await prisma.cultSettlement.findUnique({
+    where: { gymId_month_year: { gymId, month, year } },
+  });
+
+  const overwriteUrls = options?.overwriteUrls ?? false;
+  const overwriteFigures = options?.overwriteFigures ?? false;
+
+  const urlKeys = ["settlementDriveUrl", "taxInvoiceDriveUrl"] as const;
+  const figureKeys = [
+    "partnerShare",
+    "taxInvoiceGrossTotal",
+    "saleOfNewPacks",
+    "walkInsOuts",
+    "otherAdjustments",
+    "platformFees",
+    "totalRevenue",
+    "cmCharges",
+    "maintInfraCharges",
+    "centerCollections",
+    "midMonthPayment",
+    "tds",
+    "grossPayable",
+    "periodStart",
+    "periodEnd",
+    "notes",
+  ] as const;
+
+  const merged: CultSettlementInput = { month, year };
+
+  if (existing) {
+    const current = serializeCultSettlement(existing);
+    for (const key of figureKeys) {
+      const incoming = patch[key];
+      const already = current[key];
+      if (incoming === undefined) continue;
+      if (!overwriteFigures && already != null && already !== "") continue;
+      (merged as Record<string, unknown>)[key] = incoming;
+    }
+    for (const key of urlKeys) {
+      const incoming = patch[key];
+      const already = current[key];
+      if (!incoming) continue;
+      if (!overwriteUrls && already) continue;
+      merged[key] = incoming;
+    }
+    if (Object.keys(merged).length <= 2) {
+      return current;
+    }
+    const row = await prisma.cultSettlement.update({
+      where: { id: existing.id },
+      data: {
+        ...toPartialUpdate(merged),
+        enteredByUserId: userId,
+      },
+    });
+    return serializeCultSettlement(row);
+  }
+
+  return upsertCultSettlement(gymId, userId, { month, year, ...patch });
 }
 
 export async function deleteCultSettlement(gymId: string, id: string) {

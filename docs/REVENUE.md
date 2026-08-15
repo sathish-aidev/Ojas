@@ -30,7 +30,7 @@ Cult_Invoices/
   Tax_Invoices/              # Cult app / tax invoices
 ```
 
-Upload files there, then paste Drive URLs on the Revenue Cult form.
+Upload files there. Opening **Revenue** (or clicking **Scan Drive for invoices**) lists new PDFs, matches months from filenames (`Apr'26`, `Apr2026`), links them, and reads Partner Share when the PDF has selectable text. Scanned image PDFs are linked as records only.
 
 Canonical P&L number: **Partner Share** (e.g. Apr 2026 ₹8,09,198).  
 Tax Invoice **Gross Total** is used only until Partner Share is saved.
@@ -65,6 +65,6 @@ After deploy, apply schema: `npx prisma db push` (production database). Local DB
 ## Roadmap (not in this release)
 
 - Lock a closed month
-- Auto-parse Cult PDFs / watch the Drive folders
+- OCR for scanned Cult image PDFs
 - GST packs
 - Switch expenses to DB-only after historic catch-up
