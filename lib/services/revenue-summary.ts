@@ -203,6 +203,7 @@ export async function getRevenueTrend(
     year: summary.year,
     label: `${String(summary.month).padStart(2, "0")}/${summary.year}`,
     cultIncome: summary.cultIncome,
+    cultIncomeSource: summary.cultIncomeSource,
     ownerPtShare: summary.ownerPtShare,
     manualExpenses: summary.manualExpenses,
     payrollPaid: summary.payrollPaid,

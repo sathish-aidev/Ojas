@@ -107,14 +107,18 @@ export async function listCultInvoiceFiles(): Promise<{
   await collectFromFolder(settlementId, CULT_SETTLEMENT_FOLDER, 2, byId);
   await collectFromFolder(taxId, CULT_TAX_INVOICE_FOLDER, 2, byId);
   await collectFromFolder(cultId, CULT_INVOICES_FOLDER, 2, byId);
-  await collectFromFolder(rootId, "Gym Drive", 1, byId);
+  await collectFromFolder(rootId, "Gym Drive", 2, byId);
 
   try {
     const searched = await searchDrivePdfsByName([
       "Mnt End",
+      "MntEnd",
+      "Mnt",
+      "Draft Settlement",
       "Settlement",
       "Invoice",
       "Impackt",
+      "Gowlidoddi",
     ]);
     for (const file of searched) {
       if (!isPdfOrDoc(file) && file.mimeType !== "application/vnd.google-apps.folder") continue;
@@ -129,10 +133,9 @@ export async function listCultInvoiceFiles(): Promise<{
   return { folders, files };
 }
 
-export async function extractCultPdfFigures(
-  fileId: string
+export async function parseCultPdfBuffer(
+  buffer: Buffer | Uint8Array
 ): Promise<{ parsed: ParsedCultPdf; warning?: string }> {
-  const buffer = await downloadDriveFileBuffer(fileId);
   const { extractText, getDocumentProxy } = await import("unpdf");
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
   const extracted = await extractText(pdf, { mergePages: true });
@@ -145,6 +148,13 @@ export async function extractCultPdfFigures(
     };
   }
   return { parsed };
+}
+
+export async function extractCultPdfFigures(
+  fileId: string
+): Promise<{ parsed: ParsedCultPdf; warning?: string }> {
+  const buffer = await downloadDriveFileBuffer(fileId);
+  return parseCultPdfBuffer(buffer);
 }
 
 export function fileMatchesMonth(file: CultDriveFile, month: number, year: number) {

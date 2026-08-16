@@ -9,6 +9,7 @@ import { canManageCultSettlements } from "@/lib/permissions";
 import { listCultInvoiceFiles } from "@/lib/google/cult-invoices";
 import {
   attachCultFileToMonth,
+  ingestCultSettlementPdf,
   scanCultInvoicesFromDrive,
 } from "@/lib/services/cult-drive-sync";
 
@@ -31,6 +32,30 @@ export async function POST(request: Request) {
   const user = await getApiUser();
   if (!user) return unauthorized();
   if (!canManageCultSettlements(user.role)) return forbidden();
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    try {
+      const form = await request.formData();
+      const file = form.get("file");
+      const month = Number(form.get("month"));
+      const year = Number(form.get("year"));
+      if (!(file instanceof File)) return badRequest("PDF file is required");
+      if (!month || !year) return badRequest("month and year are required");
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const result = await ingestCultSettlementPdf(
+        user.gymId,
+        user.id,
+        month,
+        year,
+        file.name || "cult-settlement.pdf",
+        buffer
+      );
+      return ok(result);
+    } catch (err) {
+      return badRequest(err instanceof Error ? err.message : "Could not read settlement PDF");
+    }
+  }
 
   const body = (await request.json().catch(() => ({}))) as {
     action?: string;

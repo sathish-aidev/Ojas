@@ -2,22 +2,25 @@ import { prisma } from "@/lib/prisma";
 import {
   extractCultPdfFigures,
   listCultInvoiceFiles,
+  parseCultPdfBuffer,
   type CultDriveFile,
 } from "@/lib/google/cult-invoices";
+import {
+  CULT_INVOICES_FOLDER,
+  CULT_SETTLEMENT_FOLDER,
+  getDriveFolderId,
+} from "@/lib/sheet-config";
+import { ensureFolder, uploadPdfToFolder } from "@/lib/google/drive-archive";
 import { mergeCultSettlement, type CultSettlementInput } from "@/lib/services/cult-settlements";
 import type { ParsedCultPdf } from "@/lib/cult-pdf-parse";
+import { fromYmd } from "@/lib/date-ymd";
+import type { CultSettlement } from "@prisma/client";
 
-function figuresFromPdf(parsed: ParsedCultPdf, kind: CultDriveFile["kind"]): Partial<CultSettlementInput> {
+function figuresFromPdf(parsed: ParsedCultPdf): Partial<CultSettlementInput> {
   const patch: Partial<CultSettlementInput> = {};
-  if (kind === "tax_invoice") {
-    if (parsed.taxInvoiceGrossTotal != null) patch.taxInvoiceGrossTotal = parsed.taxInvoiceGrossTotal;
-    else if (parsed.partnerShare != null) patch.taxInvoiceGrossTotal = parsed.partnerShare;
-  } else {
-    if (parsed.partnerShare != null) patch.partnerShare = parsed.partnerShare;
-    if (parsed.taxInvoiceGrossTotal != null && kind !== "settlement") {
-      patch.taxInvoiceGrossTotal = parsed.taxInvoiceGrossTotal;
-    }
-  }
+  // Partner Share in the PDF wins even if the filename looks like a tax invoice.
+  if (parsed.partnerShare != null) patch.partnerShare = parsed.partnerShare;
+  if (parsed.taxInvoiceGrossTotal != null) patch.taxInvoiceGrossTotal = parsed.taxInvoiceGrossTotal;
   if (parsed.saleOfNewPacks != null) patch.saleOfNewPacks = parsed.saleOfNewPacks;
   if (parsed.walkInsOuts != null) patch.walkInsOuts = parsed.walkInsOuts;
   if (parsed.otherAdjustments != null) patch.otherAdjustments = parsed.otherAdjustments;
@@ -34,6 +37,34 @@ function figuresFromPdf(parsed: ParsedCultPdf, kind: CultDriveFile["kind"]): Par
   return patch;
 }
 
+function monthYearFromParsed(
+  file: CultDriveFile,
+  parsed?: ParsedCultPdf
+): { month: number; year: number } | null {
+  if (parsed?.periodStart) {
+    const d = fromYmd(parsed.periodStart);
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  }
+  if (file.month && file.year) return { month: file.month, year: file.year };
+  return null;
+}
+
+function isSettlementLike(file: CultDriveFile) {
+  return (
+    file.kind === "settlement" ||
+    /mnt\s*end|month\s*end|settlement|draft/i.test(file.name)
+  );
+}
+
+function shouldParsePdf(file: CultDriveFile, row?: CultSettlement) {
+  if (!file.mimeType.toLowerCase().includes("pdf")) return false;
+  if (row?.partnerShare != null) return false;
+  if (isSettlementLike(file)) return true;
+  // No month in the filename: read the PDF period (e.g. From: 01-January-2026).
+  if (!file.month || !file.year) return true;
+  return file.kind !== "tax_invoice";
+}
+
 export async function scanCultInvoicesFromDrive(
   gymId: string,
   userId: string,
@@ -44,31 +75,24 @@ export async function scanCultInvoicesFromDrive(
   const existing = await prisma.cultSettlement.findMany({ where: { gymId } });
   const byMonth = new Map(existing.map((row) => [`${row.year}-${row.month}`, row]));
   const linked: string[] = [];
-  const parsed: string[] = [];
+  const parsedNames: string[] = [];
   const warnings: string[] = [];
   const unmatched: CultDriveFile[] = [];
 
   for (const file of files) {
-    if (!file.month || !file.year) {
-      unmatched.push(file);
-      continue;
-    }
-
     const patch: Partial<CultSettlementInput> = {};
-    if (file.kind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
-    else patch.settlementDriveUrl = file.webViewLink;
+    let parsedPdf: ParsedCultPdf | undefined;
+    const rowGuess =
+      file.month && file.year ? byMonth.get(`${file.year}-${file.month}`) : undefined;
 
-    const row = byMonth.get(`${file.year}-${file.month}`);
-    const needsParse =
-      file.kind === "tax_invoice" ? row?.taxInvoiceGrossTotal == null : row?.partnerShare == null;
-
-    if (parsePdfs && needsParse && file.mimeType.toLowerCase().includes("pdf")) {
+    if (parsePdfs && shouldParsePdf(file, rowGuess)) {
       try {
         const result = await extractCultPdfFigures(file.id);
+        parsedPdf = result.parsed;
         if (result.warning) warnings.push(`${file.name}: ${result.warning}`);
-        Object.assign(patch, figuresFromPdf(result.parsed, file.kind));
+        Object.assign(patch, figuresFromPdf(result.parsed));
         if (result.parsed.partnerShare != null || result.parsed.taxInvoiceGrossTotal != null) {
-          parsed.push(file.name);
+          parsedNames.push(file.name);
         }
       } catch (err) {
         warnings.push(
@@ -77,7 +101,22 @@ export async function scanCultInvoicesFromDrive(
       }
     }
 
-    await mergeCultSettlement(gymId, userId, file.month, file.year, patch);
+    const key = monthYearFromParsed(file, parsedPdf);
+    if (!key) {
+      unmatched.push(file);
+      continue;
+    }
+
+    const isSettlement =
+      isSettlementLike(file) || parsedPdf?.partnerShare != null;
+    if (isSettlement) patch.settlementDriveUrl = file.webViewLink;
+    else patch.taxInvoiceDriveUrl = file.webViewLink;
+
+    await mergeCultSettlement(gymId, userId, key.month, key.year, patch);
+    const saved = await prisma.cultSettlement.findUnique({
+      where: { gymId_month_year: { gymId, month: key.month, year: key.year } },
+    });
+    if (saved) byMonth.set(`${key.year}-${key.month}`, saved);
     linked.push(file.name);
   }
 
@@ -85,7 +124,7 @@ export async function scanCultInvoicesFromDrive(
     folders,
     files,
     linked: linked.length,
-    parsed: parsed.length,
+    parsed: parsedNames.length,
     unmatched,
     warnings,
   };
@@ -101,16 +140,27 @@ export async function attachCultFileToMonth(
 ) {
   const resolvedKind = kind && kind !== "unknown" ? kind : file.kind;
   const patch: Partial<CultSettlementInput> = {};
-  if (resolvedKind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
-  else patch.settlementDriveUrl = file.webViewLink;
 
   if (file.mimeType.toLowerCase().includes("pdf")) {
     try {
       const result = await extractCultPdfFigures(file.id);
-      Object.assign(patch, figuresFromPdf(result.parsed, resolvedKind === "unknown" ? "settlement" : resolvedKind));
-      await mergeCultSettlement(gymId, userId, month, year, patch, { overwriteUrls: true });
+      Object.assign(
+        patch,
+        figuresFromPdf(result.parsed)
+      );
+      if (result.parsed.partnerShare != null || resolvedKind === "settlement") {
+        patch.settlementDriveUrl = file.webViewLink;
+      } else {
+        patch.taxInvoiceDriveUrl = file.webViewLink;
+      }
+      await mergeCultSettlement(gymId, userId, month, year, patch, {
+        overwriteUrls: true,
+        overwriteFigures: result.parsed.partnerShare != null,
+      });
       return { warning: result.warning ?? null };
     } catch (err) {
+      if (resolvedKind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
+      else patch.settlementDriveUrl = file.webViewLink;
       await mergeCultSettlement(gymId, userId, month, year, patch, { overwriteUrls: true });
       return {
         warning: err instanceof Error ? err.message : "Could not parse PDF; file linked only",
@@ -118,6 +168,67 @@ export async function attachCultFileToMonth(
     }
   }
 
+  if (resolvedKind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
+  else patch.settlementDriveUrl = file.webViewLink;
+
   await mergeCultSettlement(gymId, userId, month, year, patch, { overwriteUrls: true });
   return { warning: null };
+}
+
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+export async function ingestCultSettlementPdf(
+  gymId: string,
+  userId: string,
+  month: number,
+  year: number,
+  filename: string,
+  buffer: Buffer
+) {
+  if (buffer.length > MAX_UPLOAD_BYTES) {
+    throw new Error("PDF is larger than 15 MB");
+  }
+
+  const result = await parseCultPdfBuffer(buffer);
+  let targetMonth = month;
+  let targetYear = year;
+  if (result.parsed.periodStart) {
+    const d = fromYmd(result.parsed.periodStart);
+    targetMonth = d.getMonth() + 1;
+    targetYear = d.getFullYear();
+  }
+
+  const patch: Partial<CultSettlementInput> = {
+    ...figuresFromPdf(result.parsed),
+  };
+
+  let driveUrl: string | null = null;
+  let driveWarning: string | null = null;
+  try {
+    const rootId = getDriveFolderId();
+    const cultId = await ensureFolder(rootId, CULT_INVOICES_FOLDER);
+    const settlementId = await ensureFolder(cultId, CULT_SETTLEMENT_FOLDER);
+    driveUrl = await uploadPdfToFolder(settlementId, filename, buffer);
+    patch.settlementDriveUrl = driveUrl;
+  } catch (err) {
+    driveWarning =
+      err instanceof Error ? err.message : "Could not copy PDF to Drive; figures were still saved";
+  }
+
+  await mergeCultSettlement(gymId, userId, targetMonth, targetYear, patch, {
+    overwriteUrls: Boolean(driveUrl),
+    overwriteFigures: true,
+  });
+
+  const warnings = [result.warning, driveWarning].filter(Boolean);
+  if (result.parsed.partnerShare == null) {
+    warnings.push("No Partner Share found — upload the Draft Settlement (Mnt End) PDF, not the tax invoice.");
+  }
+
+  return {
+    month: targetMonth,
+    year: targetYear,
+    partnerShare: result.parsed.partnerShare,
+    warning: warnings.length ? warnings.join(" ") : null,
+  };
 }

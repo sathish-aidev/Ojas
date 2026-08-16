@@ -55,7 +55,11 @@ export function parseCultInvoiceFilename(
   name: string,
   modifiedTime?: string | null
 ): { month: number | null; year: number | null } {
-  const stem = name.replace(/\.[^.]+$/, "").replace(/[_]+/g, " ");
+  const stem = name
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_]+/g, " ")
+    .replace(/[‘’`´′ʼ]/g, "'")
+    .replace(/'/g, " ");
   let month: number | null = null;
   let year: number | null = null;
 

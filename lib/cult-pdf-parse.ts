@@ -99,7 +99,10 @@ export function parseCultPdfText(text: string): ParsedCultPdf {
       /Amount Collected At(?: the)? center[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
     ),
     midMonthPayment: moneyAfter(compact, /Mid-Month Payment[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
-    tds: moneyAfter(compact, /Expected TDS[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
+    tds: moneyAfter(
+      compact,
+      /Expected TDS[^%\n]*\d+\s*%[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
+    ),
     grossPayable: moneyAfter(compact, /Gross Payable[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
     periodStart: period ? toIsoDate(period[1]) : null,
     periodEnd: period ? toIsoDate(period[2]) : null,

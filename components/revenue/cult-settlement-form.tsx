@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import type { SerializedCultSettlement } from "@/lib/services/cult-settlements";
 import type { CultDriveFile } from "@/lib/google/cult-invoices";
 import { getMonthName } from "@/lib/permissions";
+import { formatCurrency } from "@/lib/utils";
 
 type Folders = {
   cultInvoicesUrl: string;
@@ -129,6 +130,8 @@ export function CultSettlementForm({
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [attaching, setAttaching] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(scanSummary ?? null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -190,6 +193,39 @@ export function CultSettlementForm({
     }
   }
 
+  async function uploadPdf(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      body.set("month", String(month));
+      body.set("year", String(year));
+      const res = await fetch("/api/revenue/cult-invoices", { method: "POST", body });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error ?? "Could not read PDF");
+        return;
+      }
+      const share =
+        typeof data.partnerShare === "number" ? formatCurrency(data.partnerShare) : "not found";
+      const periodNote =
+        data.month && data.year && (data.month !== month || data.year !== year)
+          ? ` Saved to ${getMonthName(data.month)} ${data.year} from the PDF period.`
+          : "";
+      setMessage(
+        `Read Partner Share ${share}.${periodNote}` +
+          (data.warning ? ` ${data.warning}` : "")
+      );
+      router.refresh();
+    } catch {
+      setMessage("Could not read PDF");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function attach(file: CultDriveFile, kind?: CultDriveFile["kind"]) {
     setAttaching(true);
     setMessage(null);
@@ -246,8 +282,9 @@ export function CultSettlementForm({
           <div>
             <CardTitle className="text-lg">Cult / Curefit settlement</CardTitle>
             <CardDescription>
-              Canonical income is Partner Share. Upload PDFs to Drive, then Scan Drive — the app
-              matches filenames like Apr&apos;26 and reads Partner Share when the PDF has text.
+              Canonical income is Partner Share from the Draft Settlement Statement (Mnt End). A
+              tax invoice alone is not enough — if Cult shows ₹0, use Upload Mnt End PDF, or put
+              that file in Settlement Statements and click Scan Drive.
             </CardDescription>
           </div>
           {source && source.source !== "none" && (
@@ -272,10 +309,31 @@ export function CultSettlementForm({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={scanDrive} disabled={scanning} className="min-h-11">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={scanDrive} disabled={scanning || uploading} className="min-h-11">
             {scanning ? "Scanning Drive…" : "Scan Drive for invoices"}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            disabled={uploading || scanning}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? "Reading PDF…" : "Upload Mnt End PDF"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            className="sr-only"
+            disabled={uploading || scanning}
+            onChange={(e) => {
+              const chosen = e.target.files?.[0];
+              e.target.value = "";
+              void uploadPdf(chosen);
+            }}
+          />
         </div>
 
         {monthFiles.length > 0 && (

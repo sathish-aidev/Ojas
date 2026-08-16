@@ -23,6 +23,7 @@ type TrendPoint = {
   year: number;
   label: string;
   cultIncome: number;
+  cultIncomeSource: "partner_share" | "tax_invoice" | "none";
   ownerPtShare: number;
   manualExpenses: number;
   payrollPaid: number;
@@ -56,7 +57,13 @@ export function RevenueDashboard({
         <StatCard
           title="Cult income"
           value={inr(summary.cultIncome)}
-          subtitle={summary.cultIncomeLabel}
+          subtitle={
+            summary.cultIncome > 0
+              ? summary.cultIncomeLabel
+              : summary.settlement?.taxInvoiceDriveUrl
+                ? "Tax invoice linked — settlement PDF not read yet"
+                : summary.cultIncomeLabel
+          }
         />
         <StatCard title="Owner PT share" value={inr(summary.ownerPtShare)} />
         <StatCard title="Gross income" value={inr(summary.grossIncome)} />
@@ -166,7 +173,9 @@ export function RevenueDashboard({
                 {trend.map((row) => (
                   <tr key={row.label} className="border-b last:border-0">
                     <td className="py-2">{row.label}</td>
-                    <td>{inr(row.cultIncome)}</td>
+                    <td>
+                      {row.cultIncomeSource === "none" ? "—" : inr(row.cultIncome)}
+                    </td>
                     <td>{inr(row.ownerPtShare)}</td>
                     <td>{inr(row.manualExpenses)}</td>
                     <td>{inr(row.payrollPaid)}</td>
