@@ -30,9 +30,13 @@ function emptyForm() {
 export function ExpensesPanel({
   expenses,
   monthLabel,
+  sheetUrl,
+  sheetError,
 }: {
   expenses: SerializedExpense[];
   monthLabel: string;
+  sheetUrl?: string | null;
+  sheetError?: string | null;
 }) {
   const router = useRouter();
   const [form, setForm] = useState(emptyForm);
@@ -154,7 +158,16 @@ export function ExpensesPanel({
             <CardDescription>
               {monthLabel} · {formatCurrency(total)} entered here. Paid payroll is added
               separately on the Revenue dashboard — do not re-enter trainer salaries already
-              marked Paid.
+              marked Paid. Sheet tab: Expenses
+              {sheetUrl ? (
+                <>
+                  {" · "}
+                  <a className="underline" href={sheetUrl} target="_blank" rel="noreferrer">
+                    Open Expenses sheet
+                  </a>
+                </>
+              ) : null}
+              {sheetError ? ` · Sheet: ${sheetError}` : null}
             </CardDescription>
           </div>
           <Button variant="outline" onClick={syncSheet} disabled={syncing} className="min-h-11">

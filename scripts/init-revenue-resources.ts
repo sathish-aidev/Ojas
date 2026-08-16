@@ -1,10 +1,15 @@
 /**
- * Create Cult invoice Drive folders and the Expenses Google Sheet tab.
+ * Create Cult invoice Drive folders and seed the Expenses Google Sheet tab.
  * Run: npx tsx scripts/init-revenue-resources.ts
  */
+import { config } from "dotenv";
+config({ path: ".env" });
+config({ path: ".env.local", override: true });
+
 import { ensureCultInvoiceFolders } from "../lib/google/drive-archive";
-import { ensureExpensesTab } from "../lib/google/expense-sheet";
+import { ensureExpensesTab, fetchExpenseSheetRows } from "../lib/google/expense-sheet";
 import { getExpensesSpreadsheetId } from "../lib/sheet-config";
+import { listSpreadsheetTabs } from "../lib/google/sheets-client";
 
 async function main() {
   console.log("Creating Cult invoice folders…");
@@ -23,6 +28,14 @@ async function main() {
     const spreadsheetId = getExpensesSpreadsheetId();
     console.log(`  Spreadsheet: https://docs.google.com/spreadsheets/d/${spreadsheetId}`);
     console.log(`  Tab: Expenses (sheetId ${tab.sheetId})`);
+    const tabs = await listSpreadsheetTabs();
+    console.log(`  All tabs: ${tabs.join(", ")}`);
+    if (!tabs.some((name) => name.trim().toLowerCase() === "expenses")) {
+      throw new Error('Spreadsheet does not contain a tab named "Expenses"');
+    }
+    const rows = await fetchExpenseSheetRows();
+    const header = rows[1]?.join(" | ") ?? "(missing)";
+    console.log(`  Headers: ${header}`);
   } catch (err) {
     console.error("Expenses tab failed:", err instanceof Error ? err.message : err);
     process.exitCode = 1;

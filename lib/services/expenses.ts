@@ -8,11 +8,13 @@ import { parseExpenseCategory } from "@/lib/revenue-constants";
 import { fromYmd, toYmd } from "@/lib/date-ymd";
 import {
   deleteExpenseSheetRow,
+  ensureExpensesTab,
   fetchExpenseSheetRows,
   rewriteExpenseSheet,
   upsertExpenseSheetRow,
   type ExpenseSheetRow,
 } from "@/lib/google/expense-sheet";
+import { EXPENSES_TAB_NAME } from "@/lib/sheet-config";
 
 export type SerializedExpense = {
   id: string;
@@ -98,6 +100,27 @@ async function withSheetWrite(
     return null;
   } catch (err) {
     return err instanceof Error ? err.message : "Google Sheet update failed";
+  }
+}
+
+export async function prepareExpenseSheet(): Promise<{
+  spreadsheetUrl: string | null;
+  tabName: string;
+  error: string | null;
+}> {
+  try {
+    const tab = await ensureExpensesTab();
+    return {
+      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${tab.spreadsheetId}#gid=${tab.sheetId}`,
+      tabName: EXPENSES_TAB_NAME,
+      error: null,
+    };
+  } catch (err) {
+    return {
+      spreadsheetUrl: null,
+      tabName: EXPENSES_TAB_NAME,
+      error: err instanceof Error ? err.message : "Could not open the Expenses sheet",
+    };
   }
 }
 

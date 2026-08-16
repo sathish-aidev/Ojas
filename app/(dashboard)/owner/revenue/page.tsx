@@ -6,7 +6,7 @@ import {
   getRevenueMonthSummary,
   getRevenueTrend,
 } from "@/lib/services/revenue-summary";
-import { listExpenses } from "@/lib/services/expenses";
+import { listExpenses, prepareExpenseSheet } from "@/lib/services/expenses";
 import { scanCultInvoicesFromDrive } from "@/lib/services/cult-drive-sync";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { RevenueDashboard } from "@/components/revenue/revenue-dashboard";
@@ -35,10 +35,11 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
     warnings: [] as string[],
   }));
 
-  const [summary, trend, expenses] = await Promise.all([
+  const [summary, trend, expenses, expenseSheet] = await Promise.all([
     getRevenueMonthSummary(user.gymId, month, year),
     getRevenueTrend(user.gymId, month, year),
     listExpenses(user.gymId, month, year),
+    prepareExpenseSheet(),
   ]);
 
   const folderLinks = scan.folders
@@ -89,7 +90,12 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
       />
 
       <div id="expenses">
-        <ExpensesPanel expenses={expenses} monthLabel={`${getMonthName(month)} ${year}`} />
+        <ExpensesPanel
+          expenses={expenses}
+          monthLabel={`${getMonthName(month)} ${year}`}
+          sheetUrl={expenseSheet.spreadsheetUrl}
+          sheetError={expenseSheet.error}
+        />
       </div>
     </div>
   );

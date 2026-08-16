@@ -4,7 +4,12 @@ import {
   EXPENSE_SHEET_HEADERS,
   getExpensesSpreadsheetId,
 } from "@/lib/sheet-config";
-import { EXPENSE_CATEGORY_LABELS, paymentModeLabel } from "@/lib/revenue-constants";
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_LABELS,
+  paymentModeLabel,
+} from "@/lib/revenue-constants";
+import { PAYMENT_MODE_LABELS } from "@/lib/utils";
 import type { ExpenseCategory, PaymentMode } from "@prisma/client";
 
 export type ExpenseSheetRow = {
@@ -18,8 +23,131 @@ export type ExpenseSheetRow = {
   notes: string | null;
 };
 
-function escapedTab() {
-  return `'${EXPENSES_TAB_NAME.replace(/'/g, "''")}'`;
+const INSTRUCTION_ROW =
+  "Impackt Fitness Expenses | Editable in app and sheet | Dates: DD/MM/YYYY | Category: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others | Leave Id blank for new rows — Sync from expense sheet fills it";
+
+function escapedTab(title = EXPENSES_TAB_NAME) {
+  return `'${title.replace(/'/g, "''")}'`;
+}
+
+function hasExpenseHeaders(rows: string[][]): boolean {
+  return rows.some((row) => {
+    const cells = row.map((c) => (c ?? "").trim().toLowerCase());
+    return cells.includes("date") && cells.includes("category") && cells.includes("amount");
+  });
+}
+
+async function seedExpensesTemplate(
+  spreadsheetId: string,
+  sheetId: number,
+  title: string
+): Promise<void> {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${escapedTab(title)}!A:H`,
+    valueRenderOption: "FORMATTED_VALUE",
+  });
+  const rows = (res.data.values as string[][]) ?? [];
+  if (hasExpenseHeaders(rows)) return;
+
+  const hasData = rows.some((row) => row.some((cell) => (cell ?? "").trim()));
+  if (hasData) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            insertDimension: {
+              range: { sheetId, dimension: "ROWS", startIndex: 0, endIndex: 2 },
+              inheritFromBefore: false,
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${escapedTab(title)}!A1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [[INSTRUCTION_ROW], [...EXPENSE_SHEET_HEADERS]],
+    },
+  });
+
+  const categoryValues = EXPENSE_CATEGORIES.map((key) => ({
+    userEnteredValue: EXPENSE_CATEGORY_LABELS[key],
+  }));
+  const paymentValues = Object.values(PAYMENT_MODE_LABELS).map((label) => ({
+    userEnteredValue: label,
+  }));
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId, gridProperties: { frozenRowCount: 2 } },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 8 },
+            cell: {
+              userEnteredFormat: {
+                textFormat: { bold: true },
+                backgroundColor: { red: 0.93, green: 0.93, blue: 0.93 },
+              },
+            },
+            fields: "userEnteredFormat(textFormat,backgroundColor)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 8 },
+            properties: { pixelSize: 130 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 2,
+              endRowIndex: 1000,
+              startColumnIndex: 2,
+              endColumnIndex: 3,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: categoryValues },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 2,
+              endRowIndex: 1000,
+              startColumnIndex: 5,
+              endColumnIndex: 6,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: paymentValues },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+      ],
+    },
+  });
 }
 
 export async function ensureExpensesTab(): Promise<{ spreadsheetId: string; sheetId: number }> {
@@ -30,40 +158,42 @@ export async function ensureExpensesTab(): Promise<{ spreadsheetId: string; shee
     fields: "sheets.properties(sheetId,title)",
   });
 
-  const existing = meta.data.sheets?.find((s) => s.properties?.title === EXPENSES_TAB_NAME);
-  if (existing?.properties?.sheetId != null) {
-    return { spreadsheetId, sheetId: existing.properties.sheetId };
+  const sheetsMeta = meta.data.sheets ?? [];
+  const exact = sheetsMeta.find((s) => s.properties?.title === EXPENSES_TAB_NAME);
+  const loose = sheetsMeta.find(
+    (s) => s.properties?.title?.trim().toLowerCase() === EXPENSES_TAB_NAME.toLowerCase()
+  );
+  let sheetId = exact?.properties?.sheetId ?? loose?.properties?.sheetId ?? null;
+  let title = exact?.properties?.title ?? loose?.properties?.title ?? EXPENSES_TAB_NAME;
+
+  if (sheetId == null) {
+    const added = await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: EXPENSES_TAB_NAME } } }],
+      },
+    });
+    sheetId = added.data.replies?.[0]?.addSheet?.properties?.sheetId ?? null;
+    title = EXPENSES_TAB_NAME;
+    if (sheetId == null) throw new Error("Failed to create Expenses tab");
+  } else if (title !== EXPENSES_TAB_NAME) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: { sheetId, title: EXPENSES_TAB_NAME },
+              fields: "title",
+            },
+          },
+        ],
+      },
+    });
+    title = EXPENSES_TAB_NAME;
   }
 
-  const added = await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [
-        {
-          addSheet: {
-            properties: { title: EXPENSES_TAB_NAME },
-          },
-        },
-      ],
-    },
-  });
-  const sheetId = added.data.replies?.[0]?.addSheet?.properties?.sheetId;
-  if (sheetId == null) throw new Error("Failed to create Expenses tab");
-
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${escapedTab()}!A1`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [
-        [
-          "Impackt Fitness Expenses | Editable in app and sheet until historic months are complete | Dates: DD/MM/YYYY | Leave Id blank for new rows — sync fills it",
-        ],
-        [...EXPENSE_SHEET_HEADERS],
-      ],
-    },
-  });
-
+  await seedExpensesTemplate(spreadsheetId, sheetId, title);
   return { spreadsheetId, sheetId };
 }
 
@@ -99,9 +229,7 @@ export async function rewriteExpenseSheet(rows: ExpenseSheetRow[]): Promise<void
     range: `${escapedTab()}!A:H`,
   });
   const values = [
-    [
-      "Impackt Fitness Expenses | Editable in app and sheet until historic months are complete | Dates: DD/MM/YYYY | Leave Id blank for new rows — sync fills it",
-    ],
+    [INSTRUCTION_ROW],
     [...EXPENSE_SHEET_HEADERS],
     ...rows.map(toSheetValues),
   ];

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { requireOwnerOrSupervisor } from "@/lib/session";
 import { parseMonthYearFromSearchParams } from "@/lib/parse-search-params";
 import { getMonthName } from "@/lib/permissions";
-import { listExpenses } from "@/lib/services/expenses";
+import { listExpenses, prepareExpenseSheet } from "@/lib/services/expenses";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { ExpensesPanel } from "@/components/revenue/expenses-panel";
 
@@ -14,7 +14,10 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
   const user = await requireOwnerOrSupervisor();
   const params = await searchParams;
   const { month, year } = parseMonthYearFromSearchParams(params);
-  const expenses = await listExpenses(user.gymId, month, year);
+  const [expenses, expenseSheet] = await Promise.all([
+    listExpenses(user.gymId, month, year),
+    prepareExpenseSheet(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -29,7 +32,12 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
           <MonthYearPicker month={month} year={year} enableShowAll={false} />
         </Suspense>
       </div>
-      <ExpensesPanel expenses={expenses} monthLabel={`${getMonthName(month)} ${year}`} />
+      <ExpensesPanel
+        expenses={expenses}
+        monthLabel={`${getMonthName(month)} ${year}`}
+        sheetUrl={expenseSheet.spreadsheetUrl}
+        sheetError={expenseSheet.error}
+      />
     </div>
   );
 }
