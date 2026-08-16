@@ -73,9 +73,7 @@ export function parseCultPdfText(text: string): ParsedCultPdf {
       moneyAfter(
         compact,
         /Amount Payable to Gym Partner(?:\s*\(Partner Share\))?[^\d\-]*([\d,]+(?:\.\d+)?)/i
-      ) ??
-      moneyAfter(compact, /Partner Share[^\d\-]*([\d,]+(?:\.\d+)?)/i) ??
-      moneyAfter(compact, /Partner Service\s*Fee[^\d\-]*([\d,]+(?:\.\d+)?)/i),
+      ) ?? moneyAfter(compact, /(?:\(|\b)Partner Share\)?[^\d\-]*([\d,]+(?:\.\d+)?)/i),
     taxInvoiceGrossTotal:
       moneyAfter(compact, /Gross Total[^\d\-]*([\d,]+(?:\.\d+)?)/i) ??
       moneyAfter(compact, /Grand Total[^\d\-]*([\d,]+(?:\.\d+)?)/i),
@@ -107,5 +105,56 @@ export function parseCultPdfText(text: string): ParsedCultPdf {
     periodStart: period ? toIsoDate(period[1]) : null,
     periodEnd: period ? toIsoDate(period[2]) : null,
     textLength: compact.trim().length,
+  };
+}
+
+export type CultSettlementValidation = {
+  ok: boolean;
+  month: number | null;
+  year: number | null;
+  partnerShare: number | null;
+  errors: string[];
+};
+
+/** Settlement PDFs are only confirmed when Partner Share and period both parse. */
+export function validateCultSettlementParse(
+  parsed: ParsedCultPdf,
+  expectedMonth?: number,
+  expectedYear?: number
+): CultSettlementValidation {
+  const errors: string[] = [];
+  let month: number | null = null;
+  let year: number | null = null;
+
+  if (parsed.periodStart) {
+    const d = fromYmd(parsed.periodStart);
+    month = d.getMonth() + 1;
+    year = d.getFullYear();
+  } else {
+    errors.push("Settlement period (From/To) was not found in the PDF");
+  }
+
+  if (parsed.partnerShare == null || parsed.partnerShare <= 0) {
+    errors.push("Partner Share was not found in the PDF");
+  }
+
+  if (
+    expectedMonth &&
+    expectedYear &&
+    month != null &&
+    year != null &&
+    (month !== expectedMonth || year !== expectedYear)
+  ) {
+    errors.push(
+      `PDF period is ${String(month).padStart(2, "0")}/${year}, not ${String(expectedMonth).padStart(2, "0")}/${expectedYear}`
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    month,
+    year,
+    partnerShare: parsed.partnerShare,
+    errors,
   };
 }

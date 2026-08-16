@@ -12,14 +12,15 @@ import {
 } from "@/lib/sheet-config";
 import { ensureFolder, uploadPdfToFolder } from "@/lib/google/drive-archive";
 import { mergeCultSettlement, type CultSettlementInput } from "@/lib/services/cult-settlements";
-import type { ParsedCultPdf } from "@/lib/cult-pdf-parse";
+import { validateCultSettlementParse, type ParsedCultPdf } from "@/lib/cult-pdf-parse";
 import { fromYmd } from "@/lib/date-ymd";
 import type { CultSettlement } from "@prisma/client";
 
 function figuresFromPdf(parsed: ParsedCultPdf): Partial<CultSettlementInput> {
   const patch: Partial<CultSettlementInput> = {};
-  // Partner Share in the PDF wins even if the filename looks like a tax invoice.
-  if (parsed.partnerShare != null) patch.partnerShare = parsed.partnerShare;
+  const check = validateCultSettlementParse(parsed);
+  // Partner Share is stored only after period + amount both parse.
+  if (check.ok && parsed.partnerShare != null) patch.partnerShare = parsed.partnerShare;
   if (parsed.taxInvoiceGrossTotal != null) patch.taxInvoiceGrossTotal = parsed.taxInvoiceGrossTotal;
   if (parsed.saleOfNewPacks != null) patch.saleOfNewPacks = parsed.saleOfNewPacks;
   if (parsed.walkInsOuts != null) patch.walkInsOuts = parsed.walkInsOuts;
@@ -108,7 +109,8 @@ export async function scanCultInvoicesFromDrive(
     }
 
     const isSettlement =
-      isSettlementLike(file) || parsedPdf?.partnerShare != null;
+      isSettlementLike(file) ||
+      (parsedPdf != null && validateCultSettlementParse(parsedPdf).ok);
     if (isSettlement) patch.settlementDriveUrl = file.webViewLink;
     else patch.taxInvoiceDriveUrl = file.webViewLink;
 
@@ -144,18 +146,16 @@ export async function attachCultFileToMonth(
   if (file.mimeType.toLowerCase().includes("pdf")) {
     try {
       const result = await extractCultPdfFigures(file.id);
-      Object.assign(
-        patch,
-        figuresFromPdf(result.parsed)
-      );
-      if (result.parsed.partnerShare != null || resolvedKind === "settlement") {
+      const check = validateCultSettlementParse(result.parsed, month, year);
+      Object.assign(patch, figuresFromPdf(result.parsed));
+      if (check.ok || resolvedKind === "settlement") {
         patch.settlementDriveUrl = file.webViewLink;
       } else {
         patch.taxInvoiceDriveUrl = file.webViewLink;
       }
       await mergeCultSettlement(gymId, userId, month, year, patch, {
         overwriteUrls: true,
-        overwriteFigures: result.parsed.partnerShare != null,
+        overwriteFigures: check.ok,
       });
       return { warning: result.warning ?? null };
     } catch (err) {
@@ -183,19 +183,35 @@ export async function ingestCultSettlementPdf(
   month: number,
   year: number,
   filename: string,
-  buffer: Buffer
+  buffer: Buffer,
+  options?: { confirm?: boolean }
 ) {
   if (buffer.length > MAX_UPLOAD_BYTES) {
     throw new Error("PDF is larger than 15 MB");
   }
 
   const result = await parseCultPdfBuffer(buffer);
-  let targetMonth = month;
-  let targetYear = year;
-  if (result.parsed.periodStart) {
-    const d = fromYmd(result.parsed.periodStart);
-    targetMonth = d.getMonth() + 1;
-    targetYear = d.getFullYear();
+  const check = validateCultSettlementParse(result.parsed);
+  const targetMonth = check.month ?? month;
+  const targetYear = check.year ?? year;
+
+  if (!check.ok) {
+    throw new Error(check.errors.join(". "));
+  }
+
+  const preview = {
+    needsConfirm: true as const,
+    month: targetMonth,
+    year: targetYear,
+    partnerShare: result.parsed.partnerShare,
+    totalRevenue: result.parsed.totalRevenue,
+    grossPayable: result.parsed.grossPayable,
+    periodStart: result.parsed.periodStart,
+    periodEnd: result.parsed.periodEnd,
+  };
+
+  if (!options?.confirm) {
+    return preview;
   }
 
   const patch: Partial<CultSettlementInput> = {
@@ -221,14 +237,14 @@ export async function ingestCultSettlementPdf(
   });
 
   const warnings = [result.warning, driveWarning].filter(Boolean);
-  if (result.parsed.partnerShare == null) {
-    warnings.push("No Partner Share found — upload the Draft Settlement (Mnt End) PDF, not the tax invoice.");
-  }
 
   return {
+    needsConfirm: false as const,
     month: targetMonth,
     year: targetYear,
     partnerShare: result.parsed.partnerShare,
+    totalRevenue: result.parsed.totalRevenue,
+    grossPayable: result.parsed.grossPayable,
     warning: warnings.length ? warnings.join(" ") : null,
   };
 }

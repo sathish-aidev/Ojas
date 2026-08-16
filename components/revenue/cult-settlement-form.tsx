@@ -198,25 +198,65 @@ export function CultSettlementForm({
     setUploading(true);
     setMessage(null);
     try {
-      const body = new FormData();
-      body.set("file", file);
-      body.set("month", String(month));
-      body.set("year", String(year));
-      const res = await fetch("/api/revenue/cult-invoices", { method: "POST", body });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error ?? "Could not read PDF");
+      const post = async (confirm: boolean) => {
+        const body = new FormData();
+        body.set("file", file);
+        body.set("month", String(month));
+        body.set("year", String(year));
+        if (confirm) body.set("confirm", "true");
+        const res = await fetch("/api/revenue/cult-invoices", { method: "POST", body });
+        const data = await res.json();
+        return { ok: res.ok, data };
+      };
+
+      const preview = await post(false);
+      if (!preview.ok) {
+        setMessage(preview.data.error ?? "Could not read PDF");
+        return;
+      }
+      if (preview.data.needsConfirm) {
+        const share =
+          typeof preview.data.partnerShare === "number"
+            ? formatCurrency(preview.data.partnerShare)
+            : "not found";
+        const revenue =
+          typeof preview.data.totalRevenue === "number"
+            ? formatCurrency(preview.data.totalRevenue)
+            : "—";
+        const payable =
+          typeof preview.data.grossPayable === "number"
+            ? formatCurrency(preview.data.grossPayable)
+            : "—";
+        const periodLabel = `${getMonthName(preview.data.month)} ${preview.data.year}`;
+        const accepted = window.confirm(
+          `Validated from the Mnt End PDF for ${periodLabel}:\n\n` +
+            `Partner Share (Cult income): ${share}\n` +
+            `Total Revenue: ${revenue}\n` +
+            `Gross Payable: ${payable}\n\n` +
+            `Save these figures as Cult income?`
+        );
+        if (!accepted) {
+          setMessage("Upload cancelled — Cult income was not changed");
+          return;
+        }
+      }
+
+      const saved = preview.data.needsConfirm ? await post(true) : preview;
+      if (!saved.ok) {
+        setMessage(saved.data.error ?? "Could not save PDF");
         return;
       }
       const share =
-        typeof data.partnerShare === "number" ? formatCurrency(data.partnerShare) : "not found";
+        typeof saved.data.partnerShare === "number"
+          ? formatCurrency(saved.data.partnerShare)
+          : "not found";
       const periodNote =
-        data.month && data.year && (data.month !== month || data.year !== year)
-          ? ` Saved to ${getMonthName(data.month)} ${data.year} from the PDF period.`
+        saved.data.month && saved.data.year && (saved.data.month !== month || saved.data.year !== year)
+          ? ` Saved to ${getMonthName(saved.data.month)} ${saved.data.year} from the PDF period.`
           : "";
       setMessage(
-        `Read Partner Share ${share}.${periodNote}` +
-          (data.warning ? ` ${data.warning}` : "")
+        `Saved Partner Share ${share}.${periodNote}` +
+          (saved.data.warning ? ` ${saved.data.warning}` : "")
       );
       router.refresh();
     } catch {

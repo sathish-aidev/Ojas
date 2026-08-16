@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       const year = Number(form.get("year"));
       if (!(file instanceof File)) return badRequest("PDF file is required");
       if (!month || !year) return badRequest("month and year are required");
+      const confirm = String(form.get("confirm") ?? "") === "true";
       const buffer = Buffer.from(await file.arrayBuffer());
       const result = await ingestCultSettlementPdf(
         user.gymId,
@@ -49,7 +50,8 @@ export async function POST(request: Request) {
         month,
         year,
         file.name || "cult-settlement.pdf",
-        buffer
+        buffer,
+        { confirm }
       );
       return ok(result);
     } catch (err) {
