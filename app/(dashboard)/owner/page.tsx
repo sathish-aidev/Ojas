@@ -35,6 +35,9 @@ export default async function OwnerDashboardPage() {
         <Button asChild>
           <Link href="/owner/revenue">Monthly revenue</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href="/owner/expenses">Expenses</Link>
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

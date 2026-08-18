@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
 import { getMonthName } from "@/lib/permissions";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
-import { SheetSyncPanel } from "@/components/sync/sheet-sync-panel";
+import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
 
 type PayrollRow = {
   employee: {
@@ -40,8 +40,6 @@ export function SalariesPanel({
   canEdit,
   canPay,
   canSync = false,
-  canRestoreSync = false,
-  syncRuns = [],
   reportsPath = "/owner/reports",
 }: {
   overview: PayrollRow[];
@@ -50,30 +48,6 @@ export function SalariesPanel({
   canEdit: boolean;
   canPay: boolean;
   canSync?: boolean;
-  canRestoreSync?: boolean;
-  syncRuns?: Array<{
-    id: string;
-    status: string;
-    source: string;
-    createdAt: string;
-    summary: {
-      totalCreated?: number;
-      totalUpdated?: number;
-      totalErrors?: number;
-      type?: string;
-      method?: string;
-      fileUrl?: string | null;
-      folderUrl?: string;
-      driveError?: string | null;
-      tabNames?: string[];
-      tabs?: Array<{
-        tabName: string;
-        created: number;
-        updated: number;
-        errors: string[];
-      }>;
-    };
-  }>;
   reportsPath?: string;
 }) {
   const router = useRouter();
@@ -116,9 +90,6 @@ export function SalariesPanel({
 
   return (
     <div className="space-y-6">
-      {canSync && (
-        <SheetSyncPanel runs={syncRuns} canRestore={canRestoreSync} />
-      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Salaries</h1>
@@ -127,6 +98,7 @@ export function SalariesPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {canSync && <SheetSyncActions compact />}
           <Suspense fallback={null}>
             <MonthYearPicker month={month} year={year} />
           </Suspense>

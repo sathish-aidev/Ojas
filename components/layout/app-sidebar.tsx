@@ -37,6 +37,7 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/owner/reports", label: "PT Reports", icon: FileBarChart },
         { href: "/owner/salaries", label: "Salaries", icon: DollarSign },
         { href: "/owner/revenue", label: "Revenue", icon: Wallet },
+        { href: "/owner/expenses", label: "Expenses", icon: Receipt },
         { href: "/owner/settings", label: "Settings", icon: Settings },
       ];
     case "SUPERVISOR":

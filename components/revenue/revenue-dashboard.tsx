@@ -105,8 +105,11 @@ export function RevenueDashboard({
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Expenses by category</CardTitle>
+            <Button asChild variant="outline" size="sm">
+              <Link href={expensesPath}>Open expenses</Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-3">
             {summary.expensesByCategory.length === 0 ? (
@@ -256,7 +259,7 @@ export function RevenueDashboard({
 
       <div className="flex flex-wrap gap-2">
         <Button asChild className="min-h-11">
-          <Link href={expensesPath}>Manage expenses</Link>
+          <Link href={expensesPath}>Open expenses</Link>
         </Button>
         <Button asChild variant="outline" className="min-h-11">
           <Link href={salariesPath}>Open salaries</Link>

@@ -90,6 +90,10 @@ export function SheetSyncPanel({
         setLastResult(
           `Backup ${data.status}: DB snapshot saved, but Drive/Sheets copy failed.\n${data.driveError}`
         );
+      } else if (data.method === "xlsx_export") {
+        setLastResult(
+          `Backup OK (Excel in Drive folder): ${data.folderName ?? ""}\n${data.fileUrl ?? data.folderUrl ?? ""}`
+        );
       } else if (data.method === "sheet_tabs") {
         setLastResult(
           `Backup OK (sheet tabs): ${(data.tabNames ?? []).join(", ")}\n${data.fileUrl ?? ""}`
@@ -129,8 +133,8 @@ export function SheetSyncPanel({
       <CardHeader>
         <CardTitle className="text-lg">Google Sheets Sync</CardTitle>
         <CardDescription>
-          Sheet changes do not appear automatically. After editing the Google Sheet, click Sync here,
-          then check PT Reports (use Show all to see every package).
+          Sheet changes do not appear automatically. Use Sync sheets in the header after editing
+          trainer tabs. Full backup history is on Settings (owner) or Salaries (supervisor).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -180,7 +184,9 @@ export function SheetSyncPanel({
                       <p className="mt-1 text-xs text-muted-foreground">
                         {isBackup
                           ? [
-                              run.summary.method === "sheet_tabs"
+                              run.summary.method === "xlsx_export"
+                                ? "Excel file in Drive folder"
+                                : run.summary.method === "sheet_tabs"
                                 ? "Saved as sheet tabs"
                                 : run.summary.method === "drive_copy"
                                   ? "Drive file copy"

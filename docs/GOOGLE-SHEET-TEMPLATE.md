@@ -76,11 +76,9 @@ Sample Client | 01/03/2026 | 01/04/2026 | 01/03/2026 | 15000 | 1 | PhonePe to Sa
 
 ## Sync
 
+Owner or Supervisor: **Sync sheets** in the header (also on Revenue, PT Reports, and Salaries). Full history and **Run sheet backup** are on **Settings** (owner) or **Salaries** (supervisor).
 
-
-Owner or Supervisor → **Salaries** → **Sync from Google Sheets**
-
-
+The first Owner/Supervisor login each India day auto-syncs trainer PT tabs once.
 
 The Google Sheet is the **source of truth**. Add new clients in the sheet or via the portal, then sync to update the app.
 
@@ -88,11 +86,12 @@ The Google Sheet is the **source of truth**. Add new clients in the sheet or via
 
 ## Backups
 
-- **Weekly** (Sundays 03:00 UTC): tries a full Drive copy into `Backups/YYYY-MM-DD/`. If the service account cannot own Drive files (common on personal Gmail — `storageQuotaExceeded`), it falls back to copying trainer tabs into the PT tracker as hidden sheets named `Backup YYYY-MM-DD {Trainer}` (or into `GOOGLE_BACKUP_SPREADSHEET_ID` if set). A DB snapshot is always saved.
+- **Weekly** (Sundays 03:00 UTC): tries a full Drive copy into `Backups/YYYY-MM-DD/`. If the service account cannot copy the Google Sheet file (common on personal Gmail — `storageQuotaExceeded`), it exports an `.xlsx` into that folder so it is not empty. Last resort: hidden tabs named `Backup YYYY-MM-DD {Trainer}` (or `GOOGLE_BACKUP_SPREADSHEET_ID`). A DB snapshot is always saved.
 - **Monthly** (1st): same sheet backup + payroll PDFs in `Reports/YYYY-MM/`
-- **Manual:** Salaries → **Run sheet backup**
+- **Manual:** header **Sync sheets**, or Settings → **Run sheet backup** (owner). Supervisor: Salaries panel.
+- **Daily:** first Owner/Supervisor login of the day (India date) auto-syncs trainer PT tabs.
+- Prefer a Shared Drive for `GOOGLE_DRIVE_FOLDER_ID` if you want a native Google Sheet copy in `Backups/`.
 - Ensure `CRON_SECRET` is set in Vercel (Vercel Cron sends it as `Authorization: Bearer …`). Without it, scheduled backups return 401.
-- Prefer a Shared Drive for `GOOGLE_DRIVE_FOLDER_ID` if you want real file copies in `Backups/`.
 
 ## Expenses tab
 

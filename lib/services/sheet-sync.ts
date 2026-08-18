@@ -6,6 +6,7 @@ import { allocateMonthlyInstallments } from "@/lib/services/payment-allocation";
 import { upsertSubscriptionWithPayment } from "@/lib/services/pt-tracker";
 import { recalculateTrainerMonthSplits } from "@/lib/services/trainer-split";
 import { TRAINER_SHEET_TABS } from "@/lib/sheet-config";
+import { startOfTodayInTimeZone } from "@/lib/date-ymd";
 
 export type TabSyncResult = {
   tabName: string;
@@ -141,7 +142,7 @@ export async function syncAllTrainerTabs(
   gymId: string,
   options?: {
     triggeredBy?: string;
-    source?: "MANUAL" | "CRON";
+    source?: "MANUAL" | "CRON" | "DAILY";
     month?: number;
     year?: number;
     tabs?: string[];
@@ -247,6 +248,25 @@ export async function getSheetSyncRuns(gymId: string, limit = 20) {
     take: limit,
     include: { snapshots: { select: { id: true, tabName: true } } },
   });
+}
+
+export async function getDailyPtSyncStatus(gymId: string) {
+  const since = startOfTodayInTimeZone("Asia/Kolkata");
+  const lastSuccess = await prisma.sheetSyncRun.findFirst({
+    where: {
+      gymId,
+      status: { in: ["SUCCESS", "PARTIAL"] },
+      source: { not: "BACKUP" },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true, status: true, source: true },
+  });
+  const syncedToday = Boolean(lastSuccess && lastSuccess.createdAt >= since);
+  return {
+    needsDailySync: !syncedToday,
+    lastSuccessAt: lastSuccess?.createdAt.toISOString() ?? null,
+    lastStatus: lastSuccess?.status ?? null,
+  };
 }
 
 export async function restoreSheetSyncRun(syncRunId: string, gymId: string) {

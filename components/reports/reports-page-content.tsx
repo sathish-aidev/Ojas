@@ -9,7 +9,7 @@ import { TrainerMonthlyReportTable } from "@/components/reports/trainer-monthly-
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 
 import { TrainerSelector } from "@/components/reports/trainer-selector";
-
+import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
 import type { TrainerMonthlyReport } from "@/lib/services/trainer-monthly-report";
 
 
@@ -47,15 +47,13 @@ function ReportsToolbar({
   return (
 
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
       <TrainerSelector trainers={trainers} selectedId={selectedTrainerId} />
-
-      <Suspense fallback={null}>
-
-        <MonthYearPicker month={month} year={year} showAll={showAll} />
-
-      </Suspense>
-
+      <div className="flex flex-wrap items-center gap-2">
+        <SheetSyncActions compact />
+        <Suspense fallback={null}>
+          <MonthYearPicker month={month} year={year} showAll={showAll} />
+        </Suspense>
+      </div>
     </div>
 
   );
@@ -124,9 +122,8 @@ export function ReportsPageContent({
 
           <p className="mt-1 text-sm text-amber-700">
 
-            Showing every PT package for this trainer (sorted by start date). Use Salaries → Sync
-
-            from Google Sheets to pull sheet changes into the app.
+            Showing every PT package for this trainer (sorted by start date). Use Sync sheets in
+            the header to pull sheet changes into the app.
 
           </p>
 

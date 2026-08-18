@@ -29,7 +29,7 @@ export async function runWeeklySheetBackup(gymId: string, triggeredBy = "cron") 
   let folderName = "";
   let folderUrl = "";
   let fileUrl: string | null = null;
-  let method: "drive_copy" | "sheet_tabs" | "db_only" = "db_only";
+  let method: "drive_copy" | "xlsx_export" | "sheet_tabs" | "db_only" = "db_only";
   let tabNames: string[] | undefined;
   let driveError: string | null = null;
   let status: "SUCCESS" | "PARTIAL" = "SUCCESS";

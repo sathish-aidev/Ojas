@@ -4,8 +4,8 @@ import { decimalToNumber } from "@/lib/utils";
 import { formatDateDMY, parseFlexibleDate } from "@/lib/import/parse-csv-dates";
 import { mapPaymentMode } from "@/lib/import/map-payment-mode";
 import { parseMoney } from "@/lib/parse-money";
-import { parseExpenseCategory } from "@/lib/revenue-constants";
-import { fromYmd, toYmd } from "@/lib/date-ymd";
+import { parseExpenseCategory, EXPENSE_CATEGORY_LABELS, paymentModeLabel } from "@/lib/revenue-constants";
+import { fromYmd, toYmd, shiftMonth } from "@/lib/date-ymd";
 import {
   deleteExpenseSheetRow,
   ensureExpensesTab,
@@ -129,11 +129,106 @@ export async function listExpenses(gymId: string, month?: number, year?: number)
   const expenses = await prisma.gymExpense.findMany({
     where: {
       gymId,
-      ...(month && year ? { month, year } : {}),
+      ...(month && year ? { month, year } : year ? { year } : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
   return expenses.map((e) => serialize(e, names));
+}
+
+export type ExpenseDashboard = {
+  month: number;
+  year: number;
+  total: number;
+  lastMonthTotal: number;
+  momPercent: number | null;
+  entryCount: number;
+  ytdTotal: number;
+  topCategory: { label: string; amount: number } | null;
+  byCategory: Array<{ category: ExpenseCategory; label: string; amount: number }>;
+  byPaymentMode: Array<{ mode: string; label: string; amount: number }>;
+  trend: Array<{ month: number; year: number; label: string; total: number }>;
+};
+
+export async function getExpenseDashboard(
+  gymId: string,
+  month: number,
+  year: number
+): Promise<ExpenseDashboard> {
+  const prev = shiftMonth(month, year, -1);
+  const trendKeys = Array.from({ length: 12 }, (_, i) => shiftMonth(month, year, -(11 - i)));
+
+  const [monthRows, lastRows, ytdRows, trendRows] = await Promise.all([
+    prisma.gymExpense.findMany({ where: { gymId, month, year } }),
+    prisma.gymExpense.findMany({ where: { gymId, month: prev.month, year: prev.year } }),
+    prisma.gymExpense.findMany({ where: { gymId, year } }),
+    prisma.gymExpense.findMany({
+      where: {
+        gymId,
+        OR: trendKeys.map((key) => ({ month: key.month, year: key.year })),
+      },
+      select: { month: true, year: true, amount: true },
+    }),
+  ]);
+
+  const sum = (rows: Array<{ amount: { toString(): string } }>) =>
+    rows.reduce((s, row) => s + decimalToNumber(row.amount), 0);
+
+  const total = sum(monthRows);
+  const lastMonthTotal = sum(lastRows);
+  const ytdTotal = sum(ytdRows);
+  const momPercent =
+    lastMonthTotal === 0 ? (total > 0 ? 100 : null) : ((total - lastMonthTotal) / lastMonthTotal) * 100;
+
+  const byCategoryMap = new Map<ExpenseCategory, number>();
+  const byModeMap = new Map<string, number>();
+  for (const row of monthRows) {
+    const amount = decimalToNumber(row.amount);
+    byCategoryMap.set(row.category, (byCategoryMap.get(row.category) ?? 0) + amount);
+    const mode = row.paymentMode ?? "UNSET";
+    byModeMap.set(mode, (byModeMap.get(mode) ?? 0) + amount);
+  }
+
+  const byCategory = [...byCategoryMap.entries()]
+    .map(([category, amount]) => ({
+      category,
+      label: EXPENSE_CATEGORY_LABELS[category],
+      amount,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const byPaymentMode = [...byModeMap.entries()]
+    .map(([mode, amount]) => ({
+      mode,
+      label: mode === "UNSET" ? "Not set" : paymentModeLabel(mode as PaymentMode) || mode,
+      amount,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const trendTotals = new Map<string, number>();
+  for (const row of trendRows) {
+    const key = `${row.year}-${row.month}`;
+    trendTotals.set(key, (trendTotals.get(key) ?? 0) + decimalToNumber(row.amount));
+  }
+
+  return {
+    month,
+    year,
+    total,
+    lastMonthTotal,
+    momPercent,
+    entryCount: monthRows.length,
+    ytdTotal,
+    topCategory: byCategory[0] ?? null,
+    byCategory,
+    byPaymentMode,
+    trend: trendKeys.map((key) => ({
+      month: key.month,
+      year: key.year,
+      label: `${String(key.month).padStart(2, "0")}/${key.year}`,
+      total: trendTotals.get(`${key.year}-${key.month}`) ?? 0,
+    })),
+  };
 }
 
 export async function createExpense(

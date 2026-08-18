@@ -7,7 +7,6 @@ import {
   Users,
   Calendar,
   DollarSign,
-  Settings,
   UserCircle,
   TrendingUp,
   FileBarChart,
@@ -30,8 +29,8 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/owner", label: "Home", icon: LayoutDashboard },
         { href: "/owner/clients", label: "Clients", icon: UserCircle },
         { href: "/owner/revenue", label: "Revenue", icon: Wallet },
+        { href: "/owner/expenses", label: "Expenses", icon: Receipt },
         { href: "/owner/salaries", label: "Pay", icon: DollarSign },
-        { href: "/owner/settings", label: "Settings", icon: Settings },
       ];
     case "SUPERVISOR":
       return [

@@ -23,3 +23,19 @@ export function shiftMonth(month: number, year: number, delta: number): { month:
   const d = new Date(year, month - 1 + delta, 1);
   return { month: d.getMonth() + 1, year: d.getFullYear() };
 }
+
+/** Calendar date in Asia/Kolkata as YYYY-MM-DD. */
+export function todayYmdInTimeZone(timeZone = "Asia/Kolkata"): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** Start of today in Asia/Kolkata, as a UTC Date. */
+export function startOfTodayInTimeZone(timeZone = "Asia/Kolkata"): Date {
+  const ymd = todayYmdInTimeZone(timeZone);
+  return new Date(`${ymd}T00:00:00+05:30`);
+}

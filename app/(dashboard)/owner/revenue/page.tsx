@@ -6,12 +6,11 @@ import {
   getRevenueMonthSummary,
   getRevenueTrend,
 } from "@/lib/services/revenue-summary";
-import { listExpenses, prepareExpenseSheet } from "@/lib/services/expenses";
 import { scanCultInvoicesFromDrive } from "@/lib/services/cult-drive-sync";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { RevenueDashboard } from "@/components/revenue/revenue-dashboard";
 import { CultSettlementForm } from "@/components/revenue/cult-settlement-form";
-import { ExpensesPanel } from "@/components/revenue/expenses-panel";
+import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -35,11 +34,9 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
     warnings: [] as string[],
   }));
 
-  const [summary, trend, expenses, expenseSheet] = await Promise.all([
+  const [summary, trend] = await Promise.all([
     getRevenueMonthSummary(user.gymId, month, year),
     getRevenueTrend(user.gymId, month, year),
-    listExpenses(user.gymId, month, year),
-    prepareExpenseSheet(),
   ]);
 
   const folderLinks = scan.folders
@@ -61,9 +58,12 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
             payroll
           </p>
         </div>
-        <Suspense fallback={null}>
-          <MonthYearPicker month={month} year={year} enableShowAll={false} />
-        </Suspense>
+        <div className="flex flex-wrap items-center gap-2">
+          <SheetSyncActions compact />
+          <Suspense fallback={null}>
+            <MonthYearPicker month={month} year={year} enableShowAll={false} />
+          </Suspense>
+        </div>
       </div>
 
       <RevenueDashboard
@@ -71,7 +71,7 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         trend={trend}
         salariesPath="/owner/salaries"
         reportsPath="/owner/reports"
-        expensesPath="#expenses"
+        expensesPath="/owner/expenses"
       />
 
       <CultSettlementForm
@@ -88,15 +88,6 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
             : null
         }
       />
-
-      <div id="expenses">
-        <ExpensesPanel
-          expenses={expenses}
-          monthLabel={`${getMonthName(month)} ${year}`}
-          sheetUrl={expenseSheet.spreadsheetUrl}
-          sheetError={expenseSheet.error}
-        />
-      </div>
     </div>
   );
 }

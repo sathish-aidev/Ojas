@@ -1,6 +1,6 @@
 # Monthly Revenue & P&L
 
-Owner module: **Revenue**. Supervisor: **Expenses**.
+Owner modules: **Revenue** (P&L) and **Expenses**. Supervisor: **Expenses**.
 
 ## Formula
 
@@ -40,6 +40,10 @@ Tax Invoice **Gross Total** is used only until Partner Share is saved.
 Reuses existing owner share on payments (`ownerShareAmount`) for the selected month. Same engine as PT Reports / Salaries.
 
 ## Expenses
+
+Own page: Owner `/owner/expenses`, Supervisor `/supervisor/expenses` (sidebar + mobile nav). Revenue keeps a this-month total and links here.
+
+KPIs: this month, vs last month, top category, year-to-date. Category bars and a 12-month trend. Filter the list by month/year, category, and payment mode.
 
 Fixed categories: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others.
 

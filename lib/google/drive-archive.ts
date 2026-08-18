@@ -234,10 +234,11 @@ export async function copySpreadsheetBackup(
   return res.data.id;
 }
 
-export async function uploadPdfToFolder(
+export async function uploadFileToFolder(
   folderId: string,
   filename: string,
-  buffer: Buffer
+  buffer: Buffer,
+  mimeType: string
 ): Promise<string> {
   const drive = await getDriveClient();
   const res = await drive.files.create({
@@ -246,14 +247,53 @@ export async function uploadPdfToFolder(
       parents: [folderId],
     },
     media: {
-      mimeType: "application/pdf",
+      mimeType,
       body: Readable.from(buffer),
     },
     fields: "id,webViewLink",
     supportsAllDrives: true,
   });
   if (!res.data.id) throw new Error(`Failed to upload ${filename}`);
+  await transferFileToOwner(drive, res.data.id);
   return res.data.webViewLink ?? `https://drive.google.com/file/d/${res.data.id}/view`;
+}
+
+export async function uploadPdfToFolder(
+  folderId: string,
+  filename: string,
+  buffer: Buffer
+): Promise<string> {
+  return uploadFileToFolder(folderId, filename, buffer, "application/pdf");
+}
+
+async function exportSpreadsheetXlsx(spreadsheetId: string): Promise<Buffer> {
+  const drive = await getDriveClient();
+  const res = await drive.files.export(
+    {
+      fileId: spreadsheetId,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+    { responseType: "arraybuffer" }
+  );
+  const data = res.data as ArrayBuffer | Buffer | Uint8Array;
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof Uint8Array) return Buffer.from(data);
+  return Buffer.from(new Uint8Array(data));
+}
+
+export async function uploadSpreadsheetXlsxBackup(
+  destFolderId: string,
+  date = new Date()
+): Promise<string> {
+  const spreadsheetId = getSpreadsheetId();
+  const label = formatBackupDate(date);
+  const buffer = await exportSpreadsheetXlsx(spreadsheetId);
+  return uploadFileToFolder(
+    destFolderId,
+    `Impackt-Fitness-PT-Tracker-Backup-${label}.xlsx`,
+    buffer,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
 }
 
 export function getMonthFolderWebLink(folderId: string): string {
@@ -292,6 +332,19 @@ export async function ensureWeeklyBackupFolder(date = new Date()): Promise<{
   const folderName = formatBackupDate(date);
   const folderId = await ensureFolder(backupsId, folderName);
   return { folderId, folderName };
+}
+
+async function annotateBackupFolder(folderId: string, description: string) {
+  try {
+    const drive = await getDriveClient();
+    await drive.files.update({
+      fileId: folderId,
+      requestBody: { description },
+      supportsAllDrives: true,
+    });
+  } catch {
+    // Non-fatal — empty folder is still better with a description when it works
+  }
 }
 
 export async function copySpreadsheetWeeklyBackup(
@@ -448,7 +501,7 @@ async function pruneOldBackupTabs(spreadsheetId: string, keepDays: number) {
 }
 
 export type SheetFileBackupResult = {
-  method: "drive_copy" | "sheet_tabs";
+  method: "drive_copy" | "xlsx_export" | "sheet_tabs";
   folderName?: string;
   folderUrl?: string;
   fileUrl?: string | null;
@@ -458,31 +511,59 @@ export type SheetFileBackupResult = {
 
 /**
  * Prefer a full Drive file copy into Backups/YYYY-MM-DD.
- * Fall back to copying trainer tabs inside a user-owned spreadsheet (SA-safe).
+ * If copy fails (service-account quota), export an .xlsx into that folder
+ * so it is not left empty. Last resort: copy tabs inside the spreadsheet.
  */
 export async function backupPtTrackerSpreadsheet(
   date = new Date()
 ): Promise<SheetFileBackupResult> {
   const errors: string[] = [];
+  let folder: { folderId: string; folderName: string } | null = null;
 
   try {
-    const folder = await ensureWeeklyBackupFolder(date);
-    const fileUrl = await copySpreadsheetWeeklyBackup(folder.folderId, date);
-    return {
-      method: "drive_copy",
-      folderName: folder.folderName,
-      folderUrl: getMonthFolderWebLink(folder.folderId),
-      fileUrl,
-    };
+    folder = await ensureWeeklyBackupFolder(date);
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));
   }
 
+  if (folder) {
+    try {
+      const fileUrl = await copySpreadsheetWeeklyBackup(folder.folderId, date);
+      return {
+        method: "drive_copy",
+        folderName: folder.folderName,
+        folderUrl: getMonthFolderWebLink(folder.folderId),
+        fileUrl,
+      };
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+
+    try {
+      const fileUrl = await uploadSpreadsheetXlsxBackup(folder.folderId, date);
+      return {
+        method: "xlsx_export",
+        folderName: folder.folderName,
+        folderUrl: getMonthFolderWebLink(folder.folderId),
+        fileUrl,
+      };
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   try {
     const tabs = await backupTrainerTabsInSpreadsheet(date);
+    if (folder) {
+      await annotateBackupFolder(
+        folder.folderId,
+        `Drive file copy failed. Backup is in hidden PT Tracker tabs: ${tabs.tabNames.join(", ")}`
+      );
+    }
     return {
       method: "sheet_tabs",
-      folderName: formatBackupDate(date),
+      folderName: folder?.folderName ?? formatBackupDate(date),
+      folderUrl: folder ? getMonthFolderWebLink(folder.folderId) : undefined,
       fileUrl: tabs.spreadsheetUrl,
       spreadsheetUrl: tabs.spreadsheetUrl,
       tabNames: tabs.tabNames,
