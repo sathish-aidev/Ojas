@@ -72,7 +72,7 @@ Default location: a tab named **Expenses** on the PT tracker spreadsheet. Option
 
 Setup: `npm run init:revenue`
 
-After deploy, apply schema: `npx prisma db push` (production database). Local DB was not running during this change.
+Production deploys run `prisma db push` during the Vercel build so new ExpenseKind columns are applied automatically.
 
 ## Roadmap (not in this release)
 
