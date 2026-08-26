@@ -99,10 +99,11 @@ Tab name: **Expenses** (same spreadsheet unless `GOOGLE_EXPENSES_SPREADSHEET_ID`
 
 Row 1 — instructions. Row 2 — headers:
 
-| Id | Date | Category | Description | Amount | Payment Mode | Paid By | Notes |
+| Id | Date | Type | Category | Description | Amount | Payment Mode | Paid By | Notes |
 
 - Dates: `DD/MM/YYYY`
-- Category: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others
+- Type: Owner bill, Cash given to supervisor, Supervisor spend (blank Type = Owner bill)
+- Category: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Equipment, Others
 - Leave **Id** blank for new historic rows. After **Sync from expense sheet**, the app writes Ids back.
 - App and sheet are both editable until historic months are complete. See `docs/REVENUE.md`.
 - Setup: `npm run init:revenue`

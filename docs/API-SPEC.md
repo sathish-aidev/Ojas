@@ -96,10 +96,10 @@ Auth: Session cookie (NextAuth JWT)
 | POST | `/revenue/cult-invoices` | Scan Drive / `{ action: "attach", fileId, month, year }` | Owner |
 | GET | `/revenue/cult-invoices` | List Cult invoice PDFs from Drive | Owner |
 | DELETE | `/revenue/cult-settlements/[id]` | — | Owner |
-| GET | `/expenses` | `?month=&year=` | Owner, Supervisor |
-| POST | `/expenses` | gymExpenseSchema | Owner, Supervisor |
-| PATCH | `/expenses/[id]` | partial gymExpenseSchema | Owner, Supervisor |
-| DELETE | `/expenses/[id]` | — | Owner, Supervisor |
+| GET | `/expenses` | `?month=&year=` | Owner, Supervisor (supervisor sees cash given + spends only) |
+| POST | `/expenses` | gymExpenseSchema (`kind` optional) | Owner: bill or cash given. Supervisor: spend only |
+| PATCH | `/expenses/[id]` | partial gymExpenseSchema | Owner all; Supervisor spends only |
+| DELETE | `/expenses/[id]` | — | Owner all; Supervisor spends only |
 | POST | `/expenses/sync` | merge Expenses sheet → DB | Owner, Supervisor |
 
 ---

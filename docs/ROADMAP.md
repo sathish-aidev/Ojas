@@ -33,7 +33,7 @@
 ## Phase 5b — Monthly Revenue / P&L
 - [x] Cult Partner Share (Tax Invoice Gross Total as interim)
 - [x] Owner PT share in P&L
-- [x] Gym expenses (Owner + Supervisor) + Expenses sheet
+- [x] Gym expenses (Owner bills + supervisor petty cash) + Expenses sheet
 - [x] PAID payroll netPay in monthly result
 - [x] Scan Cult invoice PDFs from Drive and match months
 - [ ] Month lock after historic catch-up

@@ -9,6 +9,7 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   PHONE: "Phone",
   SALARIES: "Salaries",
   MAINTENANCE: "Maintenance",
+  EQUIPMENT: "Equipment",
   OTHERS: "Others",
 };
 
@@ -34,6 +35,9 @@ const CATEGORY_ALIASES: Record<string, ExpenseCategory> = {
   payroll: "SALARIES",
   maintenance: "MAINTENANCE",
   maint: "MAINTENANCE",
+  equipment: "EQUIPMENT",
+  equip: "EQUIPMENT",
+  machines: "EQUIPMENT",
   others: "OTHERS",
   other: "OTHERS",
   misc: "OTHERS",

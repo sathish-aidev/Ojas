@@ -1,4 +1,11 @@
-import type { ExpenseCategory, ExpenseSource, GymExpense, PaymentMode } from "@prisma/client";
+import type {
+  ExpenseCategory,
+  ExpenseKind,
+  ExpenseSource,
+  GymExpense,
+  PaymentMode,
+  UserRole,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decimalToNumber } from "@/lib/utils";
 import { formatDateDMY, parseFlexibleDate } from "@/lib/import/parse-csv-dates";
@@ -15,12 +22,22 @@ import {
   type ExpenseSheetRow,
 } from "@/lib/google/expense-sheet";
 import { EXPENSES_TAB_NAME } from "@/lib/sheet-config";
+import {
+  authorizeExpenseWrite,
+  defaultKindForRole,
+  ExpenseWriteError,
+  isCategoryAllowedForKind,
+  parseExpenseKind,
+  pettyCashFromRows,
+  sumPnlExpenses,
+} from "@/lib/services/expense-kinds";
 
 export type SerializedExpense = {
   id: string;
   date: string;
   month: number;
   year: number;
+  kind: ExpenseKind;
   category: ExpenseCategory;
   description: string;
   amount: number;
@@ -37,6 +54,7 @@ export type SerializedExpense = {
 
 export type ExpenseInput = {
   date: string;
+  kind?: ExpenseKind;
   category: ExpenseCategory;
   description: string;
   amount: number;
@@ -44,6 +62,12 @@ export type ExpenseInput = {
   paidBy?: string;
   notes?: string;
 };
+
+function assertKindAndCategory(kind: ExpenseKind, category: ExpenseCategory) {
+  if (!isCategoryAllowedForKind(kind, category)) {
+    throw new ExpenseWriteError(400, "That category is not allowed for this expense type");
+  }
+}
 
 async function userNames(gymId: string) {
   const users = await prisma.user.findMany({
@@ -57,6 +81,7 @@ function toSheetPayload(expense: GymExpense): ExpenseSheetRow {
   return {
     id: expense.id,
     dateLabel: formatDateDMY(expense.date),
+    kind: expense.kind,
     category: expense.category,
     description: expense.description,
     amount: decimalToNumber(expense.amount),
@@ -72,6 +97,7 @@ function serialize(expense: GymExpense, names: Map<string, string>): SerializedE
     date: toYmd(expense.date),
     month: expense.month,
     year: expense.year,
+    kind: expense.kind,
     category: expense.category,
     description: expense.description,
     amount: decimalToNumber(expense.amount),
@@ -124,16 +150,45 @@ export async function prepareExpenseSheet(): Promise<{
   }
 }
 
-export async function listExpenses(gymId: string, month?: number, year?: number) {
+export async function listExpenses(
+  gymId: string,
+  month?: number,
+  year?: number,
+  role?: UserRole
+) {
   const names = await userNames(gymId);
   const expenses = await prisma.gymExpense.findMany({
     where: {
       gymId,
       ...(month && year ? { month, year } : year ? { year } : {}),
+      ...(role === "SUPERVISOR"
+        ? { kind: { in: ["SUPERVISOR_ADVANCE", "SUPERVISOR_SPEND"] } }
+        : {}),
     },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
   });
   return expenses.map((e) => serialize(e, names));
+}
+
+type CategoryAmount = { category: ExpenseCategory; label: string; amount: number };
+
+function categoryTotals(
+  rows: Array<{ kind: ExpenseKind; category: ExpenseCategory; amount: { toString(): string } }>,
+  kinds: ExpenseKind[]
+): CategoryAmount[] {
+  const map = new Map<ExpenseCategory, number>();
+  for (const row of rows) {
+    if (!kinds.includes(row.kind)) continue;
+    const amount = decimalToNumber(row.amount);
+    map.set(row.category, (map.get(row.category) ?? 0) + amount);
+  }
+  return [...map.entries()]
+    .map(([category, amount]) => ({
+      category,
+      label: EXPENSE_CATEGORY_LABELS[category],
+      amount,
+    }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 export type ExpenseDashboard = {
@@ -144,10 +199,23 @@ export type ExpenseDashboard = {
   momPercent: number | null;
   entryCount: number;
   ytdTotal: number;
+  pettyIssuedMonth: number;
+  pettySpentMonth: number;
+  pettyIssuedAll: number;
+  pettySpentAll: number;
+  pettyRemaining: number;
   topCategory: { label: string; amount: number } | null;
-  byCategory: Array<{ category: ExpenseCategory; label: string; amount: number }>;
+  byCategory: CategoryAmount[];
+  spendByCategory: CategoryAmount[];
   byPaymentMode: Array<{ mode: string; label: string; amount: number }>;
-  trend: Array<{ month: number; year: number; label: string; total: number }>;
+  trend: Array<{
+    month: number;
+    year: number;
+    label: string;
+    total: number;
+    pnlTotal: number;
+    spendTotal: number;
+  }>;
 };
 
 export async function getExpenseDashboard(
@@ -158,7 +226,7 @@ export async function getExpenseDashboard(
   const prev = shiftMonth(month, year, -1);
   const trendKeys = Array.from({ length: 12 }, (_, i) => shiftMonth(month, year, -(11 - i)));
 
-  const [monthRows, lastRows, ytdRows, trendRows] = await Promise.all([
+  const [monthRows, lastRows, ytdRows, trendRows, floatRows] = await Promise.all([
     prisma.gymExpense.findMany({ where: { gymId, month, year } }),
     prisma.gymExpense.findMany({ where: { gymId, month: prev.month, year: prev.year } }),
     prisma.gymExpense.findMany({ where: { gymId, year } }),
@@ -167,35 +235,36 @@ export async function getExpenseDashboard(
         gymId,
         OR: trendKeys.map((key) => ({ month: key.month, year: key.year })),
       },
-      select: { month: true, year: true, amount: true },
+      select: { month: true, year: true, amount: true, kind: true },
+    }),
+    prisma.gymExpense.findMany({
+      where: { gymId, kind: { in: ["SUPERVISOR_ADVANCE", "SUPERVISOR_SPEND"] } },
+      select: { kind: true, amount: true },
     }),
   ]);
 
-  const sum = (rows: Array<{ amount: { toString(): string } }>) =>
-    rows.reduce((s, row) => s + decimalToNumber(row.amount), 0);
+  const asKindRows = (rows: Array<{ kind: ExpenseKind; amount: { toString(): string } }>) =>
+    rows.map((row) => ({ kind: row.kind, amount: decimalToNumber(row.amount) }));
 
-  const total = sum(monthRows);
-  const lastMonthTotal = sum(lastRows);
-  const ytdTotal = sum(ytdRows);
+  const total = sumPnlExpenses(asKindRows(monthRows));
+  const lastMonthTotal = sumPnlExpenses(asKindRows(lastRows));
+  const ytdTotal = sumPnlExpenses(asKindRows(ytdRows));
   const momPercent =
     lastMonthTotal === 0 ? (total > 0 ? 100 : null) : ((total - lastMonthTotal) / lastMonthTotal) * 100;
 
-  const byCategoryMap = new Map<ExpenseCategory, number>();
+  const monthPetty = pettyCashFromRows(asKindRows(monthRows));
+  const allPetty = pettyCashFromRows(asKindRows(floatRows));
+
+  const byCategory = categoryTotals(monthRows, ["OWNER_BILL", "SUPERVISOR_ADVANCE"]);
+  const spendByCategory = categoryTotals(monthRows, ["SUPERVISOR_SPEND"]);
+
   const byModeMap = new Map<string, number>();
   for (const row of monthRows) {
+    if (row.kind === "SUPERVISOR_SPEND") continue;
     const amount = decimalToNumber(row.amount);
-    byCategoryMap.set(row.category, (byCategoryMap.get(row.category) ?? 0) + amount);
     const mode = row.paymentMode ?? "UNSET";
     byModeMap.set(mode, (byModeMap.get(mode) ?? 0) + amount);
   }
-
-  const byCategory = [...byCategoryMap.entries()]
-    .map(([category, amount]) => ({
-      category,
-      label: EXPENSE_CATEGORY_LABELS[category],
-      amount,
-    }))
-    .sort((a, b) => b.amount - a.amount);
 
   const byPaymentMode = [...byModeMap.entries()]
     .map(([mode, amount]) => ({
@@ -205,10 +274,16 @@ export async function getExpenseDashboard(
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  const trendTotals = new Map<string, number>();
+  const trendPnl = new Map<string, number>();
+  const trendSpend = new Map<string, number>();
   for (const row of trendRows) {
     const key = `${row.year}-${row.month}`;
-    trendTotals.set(key, (trendTotals.get(key) ?? 0) + decimalToNumber(row.amount));
+    const amount = decimalToNumber(row.amount);
+    if (row.kind === "SUPERVISOR_SPEND") {
+      trendSpend.set(key, (trendSpend.get(key) ?? 0) + amount);
+    } else {
+      trendPnl.set(key, (trendPnl.get(key) ?? 0) + amount);
+    }
   }
 
   return {
@@ -217,25 +292,47 @@ export async function getExpenseDashboard(
     total,
     lastMonthTotal,
     momPercent,
-    entryCount: monthRows.length,
+    entryCount: monthRows.filter((row) => row.kind !== "SUPERVISOR_SPEND").length,
     ytdTotal,
+    pettyIssuedMonth: monthPetty.issued,
+    pettySpentMonth: monthPetty.spent,
+    pettyIssuedAll: allPetty.issued,
+    pettySpentAll: allPetty.spent,
+    pettyRemaining: allPetty.remaining,
     topCategory: byCategory[0] ?? null,
     byCategory,
+    spendByCategory,
     byPaymentMode,
-    trend: trendKeys.map((key) => ({
-      month: key.month,
-      year: key.year,
-      label: `${String(key.month).padStart(2, "0")}/${key.year}`,
-      total: trendTotals.get(`${key.year}-${key.month}`) ?? 0,
-    })),
+    trend: trendKeys.map((key) => {
+      const mapKey = `${key.year}-${key.month}`;
+      const pnlTotal = trendPnl.get(mapKey) ?? 0;
+      const spendTotal = trendSpend.get(mapKey) ?? 0;
+      return {
+        month: key.month,
+        year: key.year,
+        label: `${String(key.month).padStart(2, "0")}/${key.year}`,
+        total: pnlTotal,
+        pnlTotal,
+        spendTotal,
+      };
+    }),
   };
 }
 
 export async function createExpense(
   gymId: string,
-  userId: string,
+  user: { id: string; role: UserRole },
   input: ExpenseInput
 ) {
+  const kind = input.kind ?? defaultKindForRole(user.role);
+  const authorized = authorizeExpenseWrite({
+    role: user.role,
+    action: "create",
+    requestedKind: kind,
+  });
+  if (!authorized.ok) throw new ExpenseWriteError(authorized.status, authorized.message);
+  assertKindAndCategory(kind, input.category);
+
   const date = fromYmd(input.date);
   const expense = await prisma.gymExpense.create({
     data: {
@@ -243,13 +340,14 @@ export async function createExpense(
       date,
       month: date.getMonth() + 1,
       year: date.getFullYear(),
+      kind,
       category: input.category,
       description: input.description.trim(),
       amount: input.amount,
       paymentMode: input.paymentMode,
       paidBy: input.paidBy?.trim() || null,
       notes: input.notes?.trim() || null,
-      createdByUserId: userId,
+      createdByUserId: user.id,
       source: "APP",
     },
   });
@@ -260,7 +358,7 @@ export async function createExpense(
 
 export async function updateExpense(
   gymId: string,
-  userId: string,
+  user: { id: string; role: UserRole },
   expenseId: string,
   input: Partial<ExpenseInput>
 ) {
@@ -269,6 +367,17 @@ export async function updateExpense(
   });
   if (!existing) return null;
 
+  const kind = input.kind ?? existing.kind;
+  const authorized = authorizeExpenseWrite({
+    role: user.role,
+    action: "update",
+    requestedKind: kind,
+    existingKind: existing.kind,
+  });
+  if (!authorized.ok) throw new ExpenseWriteError(authorized.status, authorized.message);
+  const category = input.category ?? existing.category;
+  assertKindAndCategory(kind, category);
+
   const date = input.date ? fromYmd(input.date) : existing.date;
   const expense = await prisma.gymExpense.update({
     where: { id: expenseId },
@@ -276,13 +385,14 @@ export async function updateExpense(
       ...(input.date
         ? { date, month: date.getMonth() + 1, year: date.getFullYear() }
         : {}),
-      ...(input.category ? { category: input.category } : {}),
+      kind,
+      category,
       ...(input.description != null ? { description: input.description.trim() } : {}),
       ...(input.amount != null ? { amount: input.amount } : {}),
       ...(input.paymentMode !== undefined ? { paymentMode: input.paymentMode } : {}),
       ...(input.paidBy !== undefined ? { paidBy: input.paidBy.trim() || null } : {}),
       ...(input.notes !== undefined ? { notes: input.notes.trim() || null } : {}),
-      updatedByUserId: userId,
+      updatedByUserId: user.id,
     },
   });
   const sheetError = await withSheetWrite(expense, "upsert");
@@ -290,11 +400,22 @@ export async function updateExpense(
   return { expense: serialize(expense, names), sheetError };
 }
 
-export async function deleteExpense(gymId: string, expenseId: string) {
+export async function deleteExpense(
+  gymId: string,
+  user: { id: string; role: UserRole },
+  expenseId: string
+) {
   const existing = await prisma.gymExpense.findFirst({
     where: { id: expenseId, gymId },
   });
   if (!existing) return null;
+  const authorized = authorizeExpenseWrite({
+    role: user.role,
+    action: "delete",
+    requestedKind: existing.kind,
+    existingKind: existing.kind,
+  });
+  if (!authorized.ok) throw new ExpenseWriteError(authorized.status, authorized.message);
   await prisma.gymExpense.delete({ where: { id: expenseId } });
   const sheetError = await withSheetWrite(existing, "delete");
   return { id: expenseId, sheetError };
@@ -328,6 +449,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
     const header = rows[headerIdx].map((h) => h.trim());
     const idCol = colIndex(header, "Id");
     const dateCol = colIndex(header, "Date");
+    const typeCol = colIndex(header, "Type");
     const catCol = colIndex(header, "Category");
     const descCol = colIndex(header, "Description");
     const amtCol = colIndex(header, "Amount");
@@ -349,6 +471,8 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
       const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw)
         ? fromYmd(dateRaw)
         : parseFlexibleDate(dateRaw);
+      const kindRaw = cell(row, typeCol);
+      const kind = kindRaw ? parseExpenseKind(kindRaw) : "OWNER_BILL";
       const category = parseExpenseCategory(categoryRaw);
       const amount = parseMoney(amountRaw);
 
@@ -356,8 +480,16 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
         errors.push(`Row ${rowNumber}: invalid date`);
         continue;
       }
+      if (!kind) {
+        errors.push(`Row ${rowNumber}: unknown type "${kindRaw}"`);
+        continue;
+      }
       if (!category) {
         errors.push(`Row ${rowNumber}: unknown category "${categoryRaw}"`);
+        continue;
+      }
+      if (!isCategoryAllowedForKind(kind, category)) {
+        errors.push(`Row ${rowNumber}: ${categoryRaw} is not allowed for ${kindRaw || "Owner bill"}`);
         continue;
       }
       if (amount == null || amount <= 0) {
@@ -376,6 +508,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
         date,
         month: date.getMonth() + 1,
         year: date.getFullYear(),
+        kind,
         category,
         description,
         amount,

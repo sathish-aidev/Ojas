@@ -9,10 +9,12 @@ Cult income
   = Partner Share if entered
   else Tax Invoice Gross Total (interim, while settlement is delayed)
 + Owner PT share (existing PT tracker / payment splits)
-− Manual gym expenses (this module)
+− Manual gym expenses (owner bills + cash given to supervisor)
 − PAID payroll netPay (Salaries module)
 = Net monthly result
 ```
+
+Supervisor spends from that cash are tracked in Expenses but **not** deducted again.
 
 PENDING payroll is shown but not deducted until marked Paid.
 
@@ -43,11 +45,16 @@ Reuses existing owner share on payments (`ownerShareAmount`) for the selected mo
 
 Own page: Owner `/owner/expenses`, Supervisor `/supervisor/expenses` (sidebar + mobile nav). Revenue keeps a this-month total and links here.
 
-KPIs: this month, vs last month, top category, year-to-date. Category bars and a 12-month trend. Filter the list by month/year, category, and payment mode.
+Two ledgers, one list:
 
-Fixed categories: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others.
+1. **Gym costs (in Revenue):** owner bills (Rent, Power, Salaries, Equipment, Internet, Phone, direct repairs) and **cash given to supervisor** in lumps (Maintenance / Repairs). Existing rows default to owner bills.
+2. **Supervisor spends (not in Revenue):** repairs, maintenance, small equipment, supplies, others paid from that cash. They reduce cash-on-hand only.
 
-Owner and Supervisor can add, edit, and delete.
+Cash with supervisor = all cash given − all supervisor spends. Top up when that balance is low. Owner records cash given; supervisor records spends. Supervisor cannot add Rent / Power / Salaries.
+
+KPIs: gym cost this month (P&L), vs last month, cash with supervisor, year-to-date. Category bars and a 12-month trend use P&L rows for owner and spends for supervisor. Filter the list by ledger, month/year, category, type, and payment mode.
+
+Fixed categories: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Equipment, Others.
 
 ### Dual edit (v1)
 
@@ -57,7 +64,8 @@ App database **and** the Google Sheet **Expenses** tab are both editable until h
 - **Sync from expense sheet** merges sheet rows into the app, then rewrites the tab so new rows get Ids.
 - After historic data is complete, choose a single source of truth (likely the app DB).
 
-Sheet columns: `Id | Date | Category | Description | Amount | Payment Mode | Paid By | Notes`  
+Sheet columns: `Id | Date | Type | Category | Description | Amount | Payment Mode | Paid By | Notes`  
+Type: `Owner bill`, `Cash given to supervisor`, or `Supervisor spend`. Rows without Type import as owner bills.  
 Dates: `DD/MM/YYYY`. Leave Id blank for new historic rows.
 
 Default location: a tab named **Expenses** on the PT tracker spreadsheet. Optional env: `GOOGLE_EXPENSES_SPREADSHEET_ID`.

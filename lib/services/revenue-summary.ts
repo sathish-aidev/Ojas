@@ -5,6 +5,7 @@ import { getCultSettlement } from "@/lib/services/cult-settlements";
 import { resolveCultIncome, EXPENSE_CATEGORY_LABELS } from "@/lib/revenue-constants";
 import { shiftMonth } from "@/lib/date-ymd";
 import type { ExpenseCategory } from "@prisma/client";
+import { PNL_EXPENSE_KINDS, sumPnlExpenses } from "@/lib/services/expense-kinds";
 
 export type RevenueMonthSummary = {
   month: number;
@@ -25,6 +26,7 @@ export type RevenueMonthSummary = {
     revenue: number;
   }>;
   manualExpenses: number;
+  supervisorSpends: number;
   expensesByCategory: Array<{
     category: ExpenseCategory;
     label: string;
@@ -103,10 +105,19 @@ async function getExpenseTotals(gymId: string, month: number, year: number) {
     where: { gymId, month, year },
   });
   const byCategory = new Map<ExpenseCategory, number>();
-  let manualExpenses = 0;
+  const kindRows = expenses.map((expense) => ({
+    kind: expense.kind,
+    amount: decimalToNumber(expense.amount),
+  }));
+  const manualExpenses = sumPnlExpenses(kindRows);
+  let supervisorSpends = 0;
   for (const expense of expenses) {
     const amount = decimalToNumber(expense.amount);
-    manualExpenses += amount;
+    if (expense.kind === "SUPERVISOR_SPEND") {
+      supervisorSpends += amount;
+      continue;
+    }
+      if (!PNL_EXPENSE_KINDS.includes(expense.kind)) continue;
     byCategory.set(expense.category, (byCategory.get(expense.category) ?? 0) + amount);
   }
   const expensesByCategory = [...byCategory.entries()]
@@ -116,7 +127,7 @@ async function getExpenseTotals(gymId: string, month: number, year: number) {
       amount,
     }))
     .sort((a, b) => b.amount - a.amount);
-  return { manualExpenses, expensesByCategory };
+  return { manualExpenses, supervisorSpends, expensesByCategory };
 }
 
 async function getPayrollTotals(gymId: string, month: number, year: number) {
@@ -175,6 +186,7 @@ export async function getRevenueMonthSummary(
     trainerPtShare: pt.trainerPtShare,
     ptByTrainer: pt.ptByTrainer,
     manualExpenses: expenses.manualExpenses,
+    supervisorSpends: expenses.supervisorSpends,
     expensesByCategory: expenses.expensesByCategory,
     payrollPaid: payroll.payrollPaid,
     payrollPending: payroll.payrollPending,

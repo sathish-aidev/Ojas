@@ -76,7 +76,15 @@ export function RevenueDashboard({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard title="Manual expenses" value={inr(summary.manualExpenses)} />
+        <StatCard
+          title="Manual expenses"
+          value={inr(summary.manualExpenses)}
+          subtitle={
+            summary.supervisorSpends > 0
+              ? `${inr(summary.supervisorSpends)} supervisor spends tracked (already in cash given)`
+              : "Gym bills + cash given to supervisor"
+          }
+        />
         <StatCard
           title="Payroll (paid)"
           value={inr(summary.payrollPaid)}
@@ -131,6 +139,12 @@ export function RevenueDashboard({
               ))
             )}
             <MixRow label="Payroll (paid)" amount={summary.payrollPaid} total={summary.totalCosts} />
+            {summary.supervisorSpends > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Supervisor spends of {inr(summary.supervisorSpends)} this month are already included
+                in cash given — not added again to Revenue.
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       </div>

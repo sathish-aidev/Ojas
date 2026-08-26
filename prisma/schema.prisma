@@ -94,7 +94,14 @@ enum ExpenseCategory {
   PHONE
   SALARIES
   MAINTENANCE
+  EQUIPMENT
   OTHERS
+}
+
+enum ExpenseKind {
+  OWNER_BILL
+  SUPERVISOR_ADVANCE
+  SUPERVISOR_SPEND
 }
 
 enum ExpenseSource {
@@ -519,6 +526,7 @@ model GymExpense {
   date            DateTime
   month           Int
   year            Int
+  kind            ExpenseKind      @default(OWNER_BILL)
   category        ExpenseCategory
   description     String
   amount          Decimal          @db.Decimal(12, 2)
@@ -535,4 +543,5 @@ model GymExpense {
 
   @@index([gymId, year, month])
   @@index([gymId, date])
+  @@index([gymId, kind])
 }

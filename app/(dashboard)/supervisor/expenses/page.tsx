@@ -23,8 +23,8 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
   const { month, year } = parseMonthYearFromSearchParams(params);
   const [dashboard, monthExpenses, yearExpenses, sheet] = await Promise.all([
     getExpenseDashboard(user.gymId, month, year),
-    listExpenses(user.gymId, month, year),
-    listExpenses(user.gymId, undefined, year),
+    listExpenses(user.gymId, month, year, user.role),
+    listExpenses(user.gymId, undefined, year, user.role),
     prepareExpenseSheet(),
   ]);
 
@@ -34,7 +34,7 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — gym costs, trends, and the Expenses sheet
+            {getMonthName(month)} {year} — spend from cash the owner gave you (not added to Revenue)
           </p>
         </div>
         <Suspense fallback={null}>
@@ -48,6 +48,7 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
         yearExpenses={yearExpenses}
         sheetUrl={sheet.spreadsheetUrl}
         sheetError={sheet.error}
+        role={user.role}
       />
     </div>
   );

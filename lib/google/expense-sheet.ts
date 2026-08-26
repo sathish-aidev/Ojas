@@ -9,12 +9,14 @@ import {
   EXPENSE_CATEGORY_LABELS,
   paymentModeLabel,
 } from "@/lib/revenue-constants";
+import { EXPENSE_KIND_LABELS, EXPENSE_KINDS } from "@/lib/services/expense-kinds";
 import { PAYMENT_MODE_LABELS } from "@/lib/utils";
-import type { ExpenseCategory, PaymentMode } from "@prisma/client";
+import type { ExpenseCategory, ExpenseKind, PaymentMode } from "@prisma/client";
 
 export type ExpenseSheetRow = {
   id: string;
   dateLabel: string;
+  kind: ExpenseKind;
   category: ExpenseCategory;
   description: string;
   amount: number;
@@ -23,17 +25,129 @@ export type ExpenseSheetRow = {
   notes: string | null;
 };
 
+const COL_COUNT = EXPENSE_SHEET_HEADERS.length;
+const SHEET_RANGE = `A:${String.fromCharCode(64 + COL_COUNT)}`;
+
 const INSTRUCTION_ROW =
-  "Impackt Fitness Expenses | Editable in app and sheet | Dates: DD/MM/YYYY | Category: Rent, Power Bill, Repairs, Supplies, Internet, Phone, Salaries, Maintenance, Others | Leave Id blank for new rows — Sync from expense sheet fills it";
+  "Impackt Fitness Expenses | Type: Owner bill (P&L), Cash given to supervisor (P&L + float), Supervisor spend (tracked, not in Revenue) | Dates: DD/MM/YYYY | Leave Id blank for new rows — Sync from expense sheet fills it";
 
 function escapedTab(title = EXPENSES_TAB_NAME) {
   return `'${title.replace(/'/g, "''")}'`;
 }
 
-function hasExpenseHeaders(rows: string[][]): boolean {
-  return rows.some((row) => {
-    const cells = row.map((c) => (c ?? "").trim().toLowerCase());
+function headerCells(rows: string[][]): string[] {
+  const row = rows.find((r) => {
+    const cells = r.map((c) => (c ?? "").trim().toLowerCase());
     return cells.includes("date") && cells.includes("category") && cells.includes("amount");
+  });
+  return (row ?? []).map((c) => (c ?? "").trim().toLowerCase());
+}
+
+function hasExpenseHeaders(rows: string[][]): boolean {
+  return headerCells(rows).includes("date");
+}
+
+function hasTypeHeader(rows: string[][]): boolean {
+  return headerCells(rows).includes("type");
+}
+
+async function applyExpenseSheetChrome(spreadsheetId: string, sheetId: number): Promise<void> {
+  const sheets = await getSheetsClient();
+  const categoryValues = EXPENSE_CATEGORIES.map((key) => ({
+    userEnteredValue: EXPENSE_CATEGORY_LABELS[key],
+  }));
+  const typeValues = EXPENSE_KINDS.map((key) => ({
+    userEnteredValue: EXPENSE_KIND_LABELS[key],
+  }));
+  const paymentValues = Object.values(PAYMENT_MODE_LABELS).map((label) => ({
+    userEnteredValue: label,
+  }));
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId, gridProperties: { frozenRowCount: 2 } },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        {
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: 1,
+              endRowIndex: 2,
+              startColumnIndex: 0,
+              endColumnIndex: COL_COUNT,
+            },
+            cell: {
+              userEnteredFormat: {
+                textFormat: { bold: true },
+                backgroundColor: { red: 0.93, green: 0.93, blue: 0.93 },
+              },
+            },
+            fields: "userEnteredFormat(textFormat,backgroundColor)",
+          },
+        },
+        {
+          updateDimensionProperties: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: COL_COUNT },
+            properties: { pixelSize: 130 },
+            fields: "pixelSize",
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 2,
+              endRowIndex: 1000,
+              startColumnIndex: 2,
+              endColumnIndex: 3,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: typeValues },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 2,
+              endRowIndex: 1000,
+              startColumnIndex: 3,
+              endColumnIndex: 4,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: categoryValues },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+        {
+          setDataValidation: {
+            range: {
+              sheetId,
+              startRowIndex: 2,
+              endRowIndex: 1000,
+              startColumnIndex: 6,
+              endColumnIndex: 7,
+            },
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: paymentValues },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+      ],
+    },
   });
 }
 
@@ -45,11 +159,16 @@ async function seedExpensesTemplate(
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${escapedTab(title)}!A:H`,
+    range: `${escapedTab(title)}!${SHEET_RANGE}`,
     valueRenderOption: "FORMATTED_VALUE",
   });
   const rows = (res.data.values as string[][]) ?? [];
-  if (hasExpenseHeaders(rows)) return;
+  if (hasExpenseHeaders(rows) && hasTypeHeader(rows)) return;
+
+  if (hasExpenseHeaders(rows) && !hasTypeHeader(rows)) {
+    await insertTypeColumn(spreadsheetId, sheetId, title, rows);
+    return;
+  }
 
   const hasData = rows.some((row) => row.some((cell) => (cell ?? "").trim()));
   if (hasData) {
@@ -77,77 +196,63 @@ async function seedExpensesTemplate(
     },
   });
 
-  const categoryValues = EXPENSE_CATEGORIES.map((key) => ({
-    userEnteredValue: EXPENSE_CATEGORY_LABELS[key],
-  }));
-  const paymentValues = Object.values(PAYMENT_MODE_LABELS).map((label) => ({
-    userEnteredValue: label,
-  }));
+  await applyExpenseSheetChrome(spreadsheetId, sheetId);
+}
 
+async function insertTypeColumn(
+  spreadsheetId: string,
+  sheetId: number,
+  title: string,
+  rows: string[][]
+): Promise<void> {
+  const sheets = await getSheetsClient();
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
       requests: [
         {
-          updateSheetProperties: {
-            properties: { sheetId, gridProperties: { frozenRowCount: 2 } },
-            fields: "gridProperties.frozenRowCount",
-          },
-        },
-        {
-          repeatCell: {
-            range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 8 },
-            cell: {
-              userEnteredFormat: {
-                textFormat: { bold: true },
-                backgroundColor: { red: 0.93, green: 0.93, blue: 0.93 },
-              },
-            },
-            fields: "userEnteredFormat(textFormat,backgroundColor)",
-          },
-        },
-        {
-          updateDimensionProperties: {
-            range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 8 },
-            properties: { pixelSize: 130 },
-            fields: "pixelSize",
-          },
-        },
-        {
-          setDataValidation: {
-            range: {
-              sheetId,
-              startRowIndex: 2,
-              endRowIndex: 1000,
-              startColumnIndex: 2,
-              endColumnIndex: 3,
-            },
-            rule: {
-              condition: { type: "ONE_OF_LIST", values: categoryValues },
-              showCustomUi: true,
-              strict: false,
-            },
-          },
-        },
-        {
-          setDataValidation: {
-            range: {
-              sheetId,
-              startRowIndex: 2,
-              endRowIndex: 1000,
-              startColumnIndex: 5,
-              endColumnIndex: 6,
-            },
-            rule: {
-              condition: { type: "ONE_OF_LIST", values: paymentValues },
-              showCustomUi: true,
-              strict: false,
-            },
+          insertDimension: {
+            range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 },
+            inheritFromBefore: false,
           },
         },
       ],
     },
   });
+
+  const headerIdx = rows.findIndex((row) => {
+    const cells = row.map((c) => (c ?? "").trim().toLowerCase());
+    return cells.includes("date") && cells.includes("category") && cells.includes("amount");
+  });
+  const headerRowNumber = headerIdx >= 0 ? headerIdx + 1 : 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${escapedTab(title)}!C${headerRowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [["Type"]] },
+  });
+
+  const fillStart = headerRowNumber + 1;
+  const dataCount = Math.max(0, rows.length - (headerIdx >= 0 ? headerIdx + 1 : 2));
+  if (dataCount > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${escapedTab(title)}!C${fillStart}:C${fillStart + dataCount - 1}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: Array.from({ length: dataCount }, () => [EXPENSE_KIND_LABELS.OWNER_BILL]),
+      },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${escapedTab(title)}!A1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[INSTRUCTION_ROW]] },
+  });
+
+  await applyExpenseSheetChrome(spreadsheetId, sheetId);
 }
 
 export async function ensureExpensesTab(): Promise<{ spreadsheetId: string; sheetId: number }> {
@@ -202,7 +307,7 @@ export async function fetchExpenseSheetRows(): Promise<string[][]> {
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${escapedTab()}!A:H`,
+    range: `${escapedTab()}!${SHEET_RANGE}`,
     valueRenderOption: "FORMATTED_VALUE",
   });
   return (res.data.values as string[][]) ?? [];
@@ -212,6 +317,7 @@ function toSheetValues(row: ExpenseSheetRow): string[] {
   return [
     row.id,
     row.dateLabel,
+    EXPENSE_KIND_LABELS[row.kind],
     EXPENSE_CATEGORY_LABELS[row.category],
     row.description,
     String(row.amount),
@@ -222,23 +328,20 @@ function toSheetValues(row: ExpenseSheetRow): string[] {
 }
 
 export async function rewriteExpenseSheet(rows: ExpenseSheetRow[]): Promise<void> {
-  const { spreadsheetId } = await ensureExpensesTab();
+  const { spreadsheetId, sheetId } = await ensureExpensesTab();
   const sheets = await getSheetsClient();
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: `${escapedTab()}!A:H`,
+    range: `${escapedTab()}!${SHEET_RANGE}`,
   });
-  const values = [
-    [INSTRUCTION_ROW],
-    [...EXPENSE_SHEET_HEADERS],
-    ...rows.map(toSheetValues),
-  ];
+  const values = [[INSTRUCTION_ROW], [...EXPENSE_SHEET_HEADERS], ...rows.map(toSheetValues)];
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${escapedTab()}!A1`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values },
   });
+  await applyExpenseSheetChrome(spreadsheetId, sheetId);
 }
 
 function findDataRowIndex(values: string[][], id: string): number {
@@ -250,7 +353,7 @@ export async function upsertExpenseSheetRow(row: ExpenseSheetRow): Promise<void>
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${escapedTab()}!A:H`,
+    range: `${escapedTab()}!${SHEET_RANGE}`,
     valueRenderOption: "FORMATTED_VALUE",
   });
   const values = (res.data.values as string[][]) ?? [];

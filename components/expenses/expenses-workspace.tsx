@@ -16,10 +16,18 @@ import { formatCurrency, PAYMENT_MODE_LABELS } from "@/lib/utils";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/revenue-constants";
 import type { ExpenseDashboard, SerializedExpense } from "@/lib/services/expenses";
 import { ExpensesPanel } from "@/components/revenue/expenses-panel";
-import type { ExpenseCategory, PaymentMode } from "@prisma/client";
+import type { ExpenseCategory, ExpenseKind, PaymentMode, UserRole } from "@prisma/client";
 
 function inr(value: number) {
   return formatCurrency(value);
+}
+
+type LedgerView = "pnl" | "spend" | "all";
+
+function matchesLedger(row: SerializedExpense, ledger: LedgerView) {
+  if (ledger === "all") return true;
+  if (ledger === "spend") return row.kind === "SUPERVISOR_SPEND";
+  return row.kind === "OWNER_BILL" || row.kind === "SUPERVISOR_ADVANCE";
 }
 
 export function ExpensesWorkspace({
@@ -29,6 +37,7 @@ export function ExpensesWorkspace({
   yearExpenses,
   sheetUrl,
   sheetError,
+  role,
 }: {
   monthLabel: string;
   dashboard: ExpenseDashboard;
@@ -36,54 +45,88 @@ export function ExpensesWorkspace({
   yearExpenses: SerializedExpense[];
   sheetUrl?: string | null;
   sheetError?: string | null;
+  role: UserRole;
 }) {
+  const isOwner = role === "OWNER";
   const [range, setRange] = useState<"month" | "year">("month");
+  const [ledger, setLedger] = useState<LedgerView>(isOwner ? "pnl" : "all");
   const [category, setCategory] = useState<"all" | ExpenseCategory>("all");
   const [mode, setMode] = useState<"all" | PaymentMode | "UNSET">("all");
+  const [kind, setKind] = useState<"all" | ExpenseKind>("all");
 
   const source = range === "month" ? monthExpenses : yearExpenses;
   const filtered = useMemo(() => {
     return source.filter((row) => {
+      if (!matchesLedger(row, ledger)) return false;
+      if (kind !== "all" && row.kind !== kind) return false;
       if (category !== "all" && row.category !== category) return false;
       if (mode === "UNSET" && row.paymentMode != null) return false;
       if (mode !== "all" && mode !== "UNSET" && row.paymentMode !== mode) return false;
       return true;
     });
-  }, [source, category, mode]);
+  }, [source, ledger, kind, category, mode]);
 
-  const maxCategory = Math.max(1, ...dashboard.byCategory.map((c) => c.amount));
+  const categoryRows = isOwner ? dashboard.byCategory : dashboard.spendByCategory;
+  const maxCategory = Math.max(1, ...categoryRows.map((c) => c.amount));
   const mom =
     dashboard.momPercent == null
       ? "No prior month"
       : `${dashboard.momPercent >= 0 ? "+" : ""}${dashboard.momPercent.toFixed(0)}% vs last month`;
+  const remainingLow = dashboard.pettyRemaining < 2000;
+  const remainingOverdrawn = dashboard.pettyRemaining < 0;
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="This month" value={inr(dashboard.total)} subtitle={monthLabel} />
-        <StatCard title="vs last month" value={inr(dashboard.lastMonthTotal)} subtitle={mom} />
-        <StatCard
-          title="Top category"
-          value={dashboard.topCategory ? inr(dashboard.topCategory.amount) : "—"}
-          subtitle={dashboard.topCategory?.label ?? "No expenses this month"}
-        />
-        <StatCard
-          title="Year to date"
-          value={inr(dashboard.ytdTotal)}
-          subtitle={`${dashboard.entryCount} entries this month`}
-        />
-      </div>
+      {isOwner ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard title="Gym cost this month" value={inr(dashboard.total)} subtitle={`${monthLabel} · in Revenue`} />
+          <StatCard title="vs last month" value={inr(dashboard.lastMonthTotal)} subtitle={mom} />
+          <StatCard
+            title="Cash with supervisor"
+            value={inr(dashboard.pettyRemaining)}
+            subtitle={`Given ${inr(dashboard.pettyIssuedMonth)} this month · spent ${inr(dashboard.pettySpentMonth)}`}
+            highlight={remainingOverdrawn || remainingLow}
+          />
+          <StatCard
+            title="Year to date (Revenue)"
+            value={inr(dashboard.ytdTotal)}
+            subtitle={`${dashboard.entryCount} gym-cost entries this month`}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Cash remaining"
+            value={inr(dashboard.pettyRemaining)}
+            subtitle={
+              remainingOverdrawn
+                ? "Overdrawn — ask owner for a top-up"
+                : remainingLow
+                  ? "Running low — ask owner for a top-up"
+                  : "From cash the owner has given you"
+            }
+            highlight={remainingOverdrawn || remainingLow}
+          />
+          <StatCard title="Given this month" value={inr(dashboard.pettyIssuedMonth)} subtitle={monthLabel} />
+          <StatCard title="Spent this month" value={inr(dashboard.pettySpentMonth)} subtitle="Not added to Revenue" />
+          <StatCard
+            title="Spent (all time)"
+            value={inr(dashboard.pettySpentAll)}
+            subtitle={`From ${inr(dashboard.pettyIssuedAll)} given in total`}
+          />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">By category</CardTitle>
+            <CardTitle className="text-lg">{isOwner ? "By category (Revenue)" : "Spends by category"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dashboard.byCategory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No expenses this month.</p>
+            {categoryRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No rows this month.</p>
             ) : (
-              dashboard.byCategory.map((row) => (
+              categoryRows.map((row) => (
                 <div key={row.category}>
                   <div className="mb-1 flex justify-between text-sm">
                     <span>{row.label}</span>
@@ -103,7 +146,7 @@ export function ExpensesWorkspace({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">12-month trend</CardTitle>
+            <CardTitle className="text-lg">{isOwner ? "12-month gym cost" : "12-month spends"}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-56">
@@ -113,13 +156,20 @@ export function ExpensesWorkspace({
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`} />
                   <Tooltip formatter={(value: number) => inr(value)} />
-                  <Line type="monotone" dataKey="total" name="Expenses" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey={isOwner ? "pnlTotal" : "spendTotal"}
+                    name={isOwner ? "Gym cost" : "Spends"}
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            {dashboard.byPaymentMode.length > 0 && (
+            {dashboard.byPaymentMode.length > 0 && isOwner && (
               <div className="mt-4 space-y-1 text-sm">
-                <p className="font-medium">Payment mode</p>
+                <p className="font-medium">Payment mode (Revenue)</p>
                 {dashboard.byPaymentMode.map((row) => (
                   <div key={row.mode} className="flex justify-between text-muted-foreground">
                     <span>{row.label}</span>
@@ -133,6 +183,20 @@ export function ExpensesWorkspace({
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
+        {isOwner ? (
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Ledger</span>
+            <select
+              className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={ledger}
+              onChange={(e) => setLedger(e.target.value as LedgerView)}
+            >
+              <option value="pnl">Gym costs (in Revenue)</option>
+              <option value="spend">Supervisor spends</option>
+              <option value="all">All</option>
+            </select>
+          </label>
+        ) : null}
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">View</span>
           <select
@@ -175,6 +239,21 @@ export function ExpensesWorkspace({
             ))}
           </select>
         </label>
+        {isOwner ? (
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Type</span>
+            <select
+              className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "all" | ExpenseKind)}
+            >
+              <option value="all">All types</option>
+              <option value="OWNER_BILL">Owner bill</option>
+              <option value="SUPERVISOR_ADVANCE">Cash given</option>
+              <option value="SUPERVISOR_SPEND">Supervisor spend</option>
+            </select>
+          </label>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           {filtered.length} row{filtered.length === 1 ? "" : "s"} · {inr(filtered.reduce((s, r) => s + r.amount, 0))}
         </p>
@@ -185,6 +264,7 @@ export function ExpensesWorkspace({
         monthLabel={range === "month" ? monthLabel : `${dashboard.year} (filtered)`}
         sheetUrl={sheetUrl}
         sheetError={sheetError}
+        role={role}
       />
     </div>
   );

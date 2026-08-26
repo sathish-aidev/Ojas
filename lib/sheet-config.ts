@@ -16,6 +16,7 @@ export const CULT_TAX_INVOICE_FOLDER = "Tax_Invoices";
 export const EXPENSE_SHEET_HEADERS = [
   "Id",
   "Date",
+  "Type",
   "Category",
   "Description",
   "Amount",

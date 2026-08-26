@@ -247,11 +247,19 @@ export const expenseCategorySchema = z.enum([
   "PHONE",
   "SALARIES",
   "MAINTENANCE",
+  "EQUIPMENT",
   "OTHERS",
+]);
+
+export const expenseKindSchema = z.enum([
+  "OWNER_BILL",
+  "SUPERVISOR_ADVANCE",
+  "SUPERVISOR_SPEND",
 ]);
 
 export const gymExpenseSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
+  kind: expenseKindSchema.optional(),
   category: expenseCategorySchema,
   description: z.string().trim().min(1, "Description required").max(500),
   amount: z.coerce.number().positive("Amount must be greater than 0"),

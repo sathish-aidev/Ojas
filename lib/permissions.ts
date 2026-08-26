@@ -35,6 +35,10 @@ export function canManageExpenses(role: UserRole) {
   return role === "OWNER" || role === "SUPERVISOR";
 }
 
+export function canIssueSupervisorCash(role: UserRole) {
+  return role === "OWNER";
+}
+
 export function canManageCultSettlements(role: UserRole) {
   return role === "OWNER";
 }

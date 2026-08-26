@@ -4,6 +4,7 @@ import {
   forbidden,
   badRequest,
   ok,
+  handleExpenseWriteError,
 } from "@/lib/api-utils";
 import { canManageExpenses } from "@/lib/permissions";
 import { gymExpenseSchema } from "@/lib/validations";
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   const month = monthRaw ? Number(monthRaw) : undefined;
   const year = yearRaw ? Number(yearRaw) : undefined;
 
-  const expenses = await listExpenses(user.gymId, month, year);
+  const expenses = await listExpenses(user.gymId, month, year, user.role);
   return ok({ expenses });
 }
 
@@ -33,6 +34,10 @@ export async function POST(request: Request) {
   const parsed = gymExpenseSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid expense");
 
-  const result = await createExpense(user.gymId, user.id, parsed.data);
-  return ok(result, 201);
+  try {
+    const result = await createExpense(user.gymId, user, parsed.data);
+    return ok(result, 201);
+  } catch (err) {
+    return handleExpenseWriteError(err) ?? badRequest("Could not save expense");
+  }
 }

@@ -34,7 +34,7 @@ export default async function OwnerExpensesPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — gym costs, trends, and the Expenses sheet
+            {getMonthName(month)} {year} — gym bills and cash given count in Revenue; supervisor spends are tracked only
           </p>
         </div>
         <Suspense fallback={null}>
@@ -48,6 +48,7 @@ export default async function OwnerExpensesPage({ searchParams }: Props) {
         yearExpenses={yearExpenses}
         sheetUrl={sheet.spreadsheetUrl}
         sheetError={sheet.error}
+        role="OWNER"
       />
     </div>
   );

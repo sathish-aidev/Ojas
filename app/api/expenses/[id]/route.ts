@@ -5,6 +5,7 @@ import {
   badRequest,
   notFound,
   ok,
+  handleExpenseWriteError,
 } from "@/lib/api-utils";
 import { canManageExpenses } from "@/lib/permissions";
 import { gymExpenseUpdateSchema } from "@/lib/validations";
@@ -22,9 +23,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const parsed = gymExpenseUpdateSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid expense");
 
-  const result = await updateExpense(user.gymId, user.id, id, parsed.data);
-  if (!result) return notFound("Expense not found");
-  return ok(result);
+  try {
+    const result = await updateExpense(user.gymId, user, id, parsed.data);
+    if (!result) return notFound("Expense not found");
+    return ok(result);
+  } catch (err) {
+    return handleExpenseWriteError(err) ?? badRequest("Could not update expense");
+  }
 }
 
 export async function DELETE(_request: Request, ctx: Ctx) {
@@ -33,7 +38,11 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   if (!canManageExpenses(user.role)) return forbidden();
 
   const { id } = await ctx.params;
-  const result = await deleteExpense(user.gymId, id);
-  if (!result) return notFound("Expense not found");
-  return ok(result);
+  try {
+    const result = await deleteExpense(user.gymId, user, id);
+    if (!result) return notFound("Expense not found");
+    return ok(result);
+  } catch (err) {
+    return handleExpenseWriteError(err) ?? badRequest("Could not delete expense");
+  }
 }

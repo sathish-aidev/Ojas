@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { SessionUser } from "@/lib/permissions";
 import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { ExpenseWriteError } from "@/lib/services/expense-kinds";
 
 export async function getApiUser(): Promise<SessionUser | null> {
   return getSessionUser();
@@ -47,6 +48,13 @@ export function serverError(message = "Something went wrong. Please try again.")
 
 export function ok<T>(data: T, status = 200) {
   return NextResponse.json(data, { status });
+}
+
+export function handleExpenseWriteError(error: unknown): NextResponse | null {
+  if (error instanceof ExpenseWriteError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+  return null;
 }
 
 export function handlePrismaError(error: unknown): NextResponse {
