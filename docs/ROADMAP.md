@@ -36,6 +36,7 @@
 - [x] Gym expenses (Owner bills + supervisor petty cash) + Expenses sheet
 - [x] PAID payroll netPay in monthly result
 - [x] Scan Cult invoice PDFs from Drive and match months
+- [x] Upload settlement + tax invoice from Revenue; store in Drive with month names; Scan Drive processes that month
 - [x] Actual money received + RDS on Monthly revenue (RDS not added to income)
 - [x] Split Google Sheets: **Expenses** for owner gym costs; **Supervisor spends** tab for petty-cash lines (not in Revenue)
 - [x] Extra expense types: TDS, GST, and CA fee

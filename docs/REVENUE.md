@@ -35,10 +35,19 @@ Cult_Invoices/
   Tax_Invoices/              # Cult app / tax invoices
 ```
 
-Upload files there. Opening **Revenue** (or clicking **Scan Drive for invoices**) lists new PDFs, matches months from filenames (`Apr'26`, `Apr2026`), links them, and reads Partner Share when the PDF has selectable text. Scanned image PDFs are linked as records only.
+Upload files there, or use **Upload settlement PDF** / **Upload tax invoice** on Revenue. App uploads use these names:
 
-Canonical P&L number: **Partner Share** (e.g. Apr 2026 ₹8,09,198).  
-Tax Invoice **Gross Total** is used only until Partner Share is saved.
+```
+Impackt Fitness (Gowlidoddi)_Apr'26_Mnt End.pdf
+Impackt Fitness (Gowlidoddi)_Apr2026_Tax Invoice.pdf
+```
+
+**Scan Drive for invoices** reads new PDFs, matches the month from the filename or the PDF period (`From: 01-April-2026`), fills that month’s Cult figures (including RDS / cash received), and opens that month. Files already processed are skipped unless a new Drive file is added for the same month.
+
+Scanned image PDFs with no selectable text are stored and linked; figures must be entered by hand unless the PDF has text.
+
+Canonical P&L number: **actual money received** when RDS/cash legs are known, otherwise **Partner Share**.  
+Tax Invoice **Gross Total** is used only until Partner Share / received cash is saved.
 
 ## PT income
 

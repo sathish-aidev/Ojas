@@ -131,7 +131,8 @@ export function CultSettlementForm({
   const [scanning, setScanning] = useState(false);
   const [attaching, setAttaching] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const settlementInputRef = useRef<HTMLInputElement>(null);
+  const taxInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(scanSummary ?? null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -167,6 +168,14 @@ export function CultSettlementForm({
     }
   }
 
+  function goToMonth(nextMonth: number, nextYear: number) {
+    if (nextMonth === month && nextYear === year) {
+      router.refresh();
+      return;
+    }
+    router.push(`/owner/revenue?month=${nextMonth}&year=${nextYear}`);
+  }
+
   async function scanDrive() {
     setScanning(true);
     setMessage(null);
@@ -181,11 +190,26 @@ export function CultSettlementForm({
         setMessage(data.error ?? "Drive scan failed");
         return;
       }
+      const processed = (data.processed ?? []) as Array<{
+        month: number;
+        year: number;
+        kind: string;
+        fileName: string;
+      }>;
+      const latest = processed[processed.length - 1];
+      const processedNote = latest
+        ? ` Processed ${getMonthName(latest.month)} ${latest.year}.`
+        : "";
       setMessage(
         `Drive scan: ${data.linked} file(s) matched to months, ${data.parsed} PDF(s) read.` +
+          processedNote +
           (data.unmatched?.length ? ` ${data.unmatched.length} unmatched.` : "")
       );
-      router.refresh();
+      if (latest) {
+        goToMonth(latest.month, latest.year);
+      } else {
+        router.refresh();
+      }
     } catch {
       setMessage("Drive scan failed");
     } finally {
@@ -193,7 +217,7 @@ export function CultSettlementForm({
     }
   }
 
-  async function uploadPdf(file: File | undefined) {
+  async function uploadPdf(file: File | undefined, kind: "settlement" | "tax_invoice") {
     if (!file) return;
     setUploading(true);
     setMessage(null);
@@ -203,6 +227,7 @@ export function CultSettlementForm({
         body.set("file", file);
         body.set("month", String(month));
         body.set("year", String(year));
+        body.set("kind", kind);
         if (confirm) body.set("confirm", "true");
         const res = await fetch("/api/revenue/cult-invoices", { method: "POST", body });
         const data = await res.json();
@@ -215,28 +240,42 @@ export function CultSettlementForm({
         return;
       }
       if (preview.data.needsConfirm) {
-        const share =
-          typeof preview.data.partnerShare === "number"
-            ? formatCurrency(preview.data.partnerShare)
-            : "not found";
-        const revenue =
-          typeof preview.data.totalRevenue === "number"
-            ? formatCurrency(preview.data.totalRevenue)
-            : "—";
-        const payable =
-          typeof preview.data.grossPayable === "number"
-            ? formatCurrency(preview.data.grossPayable)
-            : "—";
         const periodLabel = `${getMonthName(preview.data.month)} ${preview.data.year}`;
-        const accepted = window.confirm(
-          `Validated from the Mnt End PDF for ${periodLabel}:\n\n` +
-            `Partner Share (Cult income): ${share}\n` +
-            `Total Revenue: ${revenue}\n` +
-            `Gross Payable: ${payable}\n\n` +
-            `Save these figures as Cult income?`
-        );
+        const driveName = preview.data.canonicalName
+          ? `\nDrive file: ${preview.data.canonicalName}`
+          : "";
+        const accepted =
+          kind === "settlement"
+            ? window.confirm(
+                `Validated settlement PDF for ${periodLabel}:\n\n` +
+                  `Partner Share: ${
+                    typeof preview.data.partnerShare === "number"
+                      ? formatCurrency(preview.data.partnerShare)
+                      : "not found"
+                  }\n` +
+                  `RDS: ${
+                    typeof preview.data.tds === "number" ? formatCurrency(preview.data.tds) : "—"
+                  }\n` +
+                  `Gross Payable: ${
+                    typeof preview.data.grossPayable === "number"
+                      ? formatCurrency(preview.data.grossPayable)
+                      : "—"
+                  }\n` +
+                  driveName +
+                  `\n\nSave this month and store the PDF in Drive?`
+              )
+            : window.confirm(
+                `Tax invoice for ${periodLabel}:\n\n` +
+                  `Gross Total: ${
+                    typeof preview.data.taxInvoiceGrossTotal === "number"
+                      ? formatCurrency(preview.data.taxInvoiceGrossTotal)
+                      : "not found (will still store the PDF)"
+                  }\n` +
+                  driveName +
+                  `\n\nSave and store this PDF in Drive?`
+              );
         if (!accepted) {
-          setMessage("Upload cancelled — Cult income was not changed");
+          setMessage("Upload cancelled — this month was not changed");
           return;
         }
       }
@@ -246,19 +285,31 @@ export function CultSettlementForm({
         setMessage(saved.data.error ?? "Could not save PDF");
         return;
       }
-      const share =
-        typeof saved.data.partnerShare === "number"
-          ? formatCurrency(saved.data.partnerShare)
-          : "not found";
       const periodNote =
         saved.data.month && saved.data.year && (saved.data.month !== month || saved.data.year !== year)
-          ? ` Saved to ${getMonthName(saved.data.month)} ${saved.data.year} from the PDF period.`
+          ? ` Opened ${getMonthName(saved.data.month)} ${saved.data.year}.`
           : "";
-      setMessage(
-        `Saved Partner Share ${share}.${periodNote}` +
-          (saved.data.warning ? ` ${saved.data.warning}` : "")
-      );
-      router.refresh();
+      const nameNote = saved.data.canonicalName ? ` Stored as ${saved.data.canonicalName}.` : "";
+      if (kind === "settlement") {
+        const share =
+          typeof saved.data.partnerShare === "number"
+            ? formatCurrency(saved.data.partnerShare)
+            : "not found";
+        setMessage(`Saved Partner Share ${share}.${nameNote}${periodNote}` +
+          (saved.data.warning ? ` ${saved.data.warning}` : ""));
+      } else {
+        const gross =
+          typeof saved.data.taxInvoiceGrossTotal === "number"
+            ? formatCurrency(saved.data.taxInvoiceGrossTotal)
+            : "not read";
+        setMessage(`Saved tax invoice (Gross Total ${gross}).${nameNote}${periodNote}` +
+          (saved.data.warning ? ` ${saved.data.warning}` : ""));
+      }
+      if (saved.data.month && saved.data.year) {
+        goToMonth(saved.data.month, saved.data.year);
+      } else {
+        router.refresh();
+      }
     } catch {
       setMessage("Could not read PDF");
     } finally {
@@ -322,9 +373,9 @@ export function CultSettlementForm({
           <div>
             <CardTitle className="text-lg">Cult / Curefit settlement</CardTitle>
             <CardDescription>
-              Canonical income is Partner Share from the Draft Settlement Statement (Mnt End). A
-              tax invoice alone is not enough — if Cult shows ₹0, use Upload Mnt End PDF, or put
-              that file in Settlement Statements and click Scan Drive.
+              Upload a settlement (Mnt End) or tax invoice here — the app stores it in Drive with
+              the month in the filename and fills that month. Or drop PDFs in the folders below and
+              click Scan Drive.
             </CardDescription>
           </div>
           {source && source.source !== "none" && (
@@ -358,12 +409,21 @@ export function CultSettlementForm({
             variant="outline"
             className="min-h-11"
             disabled={uploading || scanning}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => settlementInputRef.current?.click()}
           >
-            {uploading ? "Reading PDF…" : "Upload Mnt End PDF"}
+            {uploading ? "Reading PDF…" : "Upload settlement PDF"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            disabled={uploading || scanning}
+            onClick={() => taxInputRef.current?.click()}
+          >
+            {uploading ? "Reading PDF…" : "Upload tax invoice"}
           </Button>
           <input
-            ref={fileInputRef}
+            ref={settlementInputRef}
             type="file"
             accept="application/pdf"
             className="sr-only"
@@ -371,7 +431,19 @@ export function CultSettlementForm({
             onChange={(e) => {
               const chosen = e.target.files?.[0];
               e.target.value = "";
-              void uploadPdf(chosen);
+              void uploadPdf(chosen, "settlement");
+            }}
+          />
+          <input
+            ref={taxInputRef}
+            type="file"
+            accept="application/pdf"
+            className="sr-only"
+            disabled={uploading || scanning}
+            onChange={(e) => {
+              const chosen = e.target.files?.[0];
+              e.target.value = "";
+              void uploadPdf(chosen, "tax_invoice");
             }}
           />
         </div>
@@ -398,8 +470,8 @@ export function CultSettlementForm({
 
         {driveFiles.length === 0 && !folderError && (
           <p className="text-sm text-muted-foreground">
-            No invoice PDFs found yet. Upload to the folders above, then click Scan Drive. Share the
-            folder with the Google service account if files do not appear.
+            No invoice PDFs found yet. Upload both types here, or add them in Drive and click Scan
+            Drive. Share the gym Drive folder with the Google service account if files do not appear.
           </p>
         )}
 

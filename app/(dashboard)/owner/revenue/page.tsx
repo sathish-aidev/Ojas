@@ -32,6 +32,7 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
     parsed: 0,
     unmatched: [],
     warnings: [] as string[],
+    processed: [] as Array<{ month: number; year: number }>,
   }));
 
   const [summary, trend] = await Promise.all([
@@ -84,7 +85,13 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         scanWarnings={scan.warnings}
         scanSummary={
           !folderError && scan.linked > 0
-            ? `Loaded ${scan.linked} Drive file(s)${scan.parsed ? `, read ${scan.parsed} PDF(s)` : ""}.`
+            ? `Loaded ${scan.linked} Drive file(s)${scan.parsed ? `, read ${scan.parsed} PDF(s)` : ""}.${
+                scan.processed?.length
+                  ? ` Processed ${scan.processed
+                      .map((p) => `${getMonthName(p.month)} ${p.year}`)
+                      .join(", ")}.`
+                  : ""
+              }`
             : null
         }
       />

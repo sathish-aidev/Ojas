@@ -93,7 +93,7 @@ Auth: Session cookie (NextAuth JWT)
 |--------|------|--------------|-------|
 | GET | `/revenue/summary` | `?month=&year=&trend=1` | Owner |
 | GET | `/revenue/cult-settlements` | `?month=&year=` | Owner |
-| POST | `/revenue/cult-invoices` | Scan Drive / `{ action: "attach", fileId, month, year }` | Owner |
+| POST | `/revenue/cult-invoices` | Scan Drive; `{ action: "attach" }`; or multipart `file` + `kind=settlement\|tax_invoice` | Owner |
 | GET | `/revenue/cult-invoices` | List Cult invoice PDFs from Drive | Owner |
 | DELETE | `/revenue/cult-settlements/[id]` | — | Owner |
 | GET | `/expenses` | `?month=&year=` | Owner, Supervisor (supervisor sees cash given + spends only) |

@@ -9,7 +9,7 @@ import { canManageCultSettlements } from "@/lib/permissions";
 import { listCultInvoiceFiles } from "@/lib/google/cult-invoices";
 import {
   attachCultFileToMonth,
-  ingestCultSettlementPdf,
+  ingestCultInvoicePdf,
   scanCultInvoicesFromDrive,
 } from "@/lib/services/cult-drive-sync";
 
@@ -40,22 +40,24 @@ export async function POST(request: Request) {
       const file = form.get("file");
       const month = Number(form.get("month"));
       const year = Number(form.get("year"));
+      const kind = form.get("kind") === "tax_invoice" ? "tax_invoice" : "settlement";
       if (!(file instanceof File)) return badRequest("PDF file is required");
       if (!month || !year) return badRequest("month and year are required");
       const confirm = String(form.get("confirm") ?? "") === "true";
       const buffer = Buffer.from(await file.arrayBuffer());
-      const result = await ingestCultSettlementPdf(
+      const result = await ingestCultInvoicePdf(
         user.gymId,
         user.id,
         month,
         year,
-        file.name || "cult-settlement.pdf",
+        file.name || (kind === "tax_invoice" ? "cult-tax-invoice.pdf" : "cult-settlement.pdf"),
         buffer,
+        kind,
         { confirm }
       );
       return ok(result);
     } catch (err) {
-      return badRequest(err instanceof Error ? err.message : "Could not read settlement PDF");
+      return badRequest(err instanceof Error ? err.message : "Could not read invoice PDF");
     }
   }
 

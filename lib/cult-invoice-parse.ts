@@ -27,15 +27,71 @@ const MONTH_ALIASES: Record<string, number> = {
 
 export type CultInvoiceKind = "settlement" | "tax_invoice" | "unknown";
 
+export const DEFAULT_CULT_GYM_LABEL = "Impackt Fitness (Gowlidoddi)";
+
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
 export function classifyCultInvoiceName(name: string): CultInvoiceKind {
   const n = name.toLowerCase();
   const settlement =
     /settlement|mnt\s*end|month\s*end|mnt\.?\s*end|partner\s*share/.test(n);
-  const tax = /tax\s*invoice|invoice/.test(n);
+  const tax = /tax\s*invoice|_tax invoice|invoice/.test(n);
   if (settlement && !tax) return "settlement";
   if (tax && !settlement) return "tax_invoice";
   if (settlement && tax) return /settlement|mnt/.test(n) ? "settlement" : "tax_invoice";
   return "unknown";
+}
+
+export function classifyCultInvoice(name: string, folderHint = ""): CultInvoiceKind {
+  if (/tax[_\s-]*invoice/i.test(folderHint)) return "tax_invoice";
+  if (/settlement/i.test(folderHint)) return "settlement";
+  return classifyCultInvoiceName(name);
+}
+
+export function cultGymDriveLabel(gym?: { name: string; location: string | null } | null): string {
+  if (!gym) return DEFAULT_CULT_GYM_LABEL;
+  const blob = `${gym.name} ${gym.location ?? ""}`;
+  if (/gowlidoddi/i.test(blob)) return DEFAULT_CULT_GYM_LABEL;
+  const locationFirst = gym.location?.split(",")[0]?.trim() ?? "";
+  const name = gym.name.replace(/\s+Hyderabad$/i, "").trim() || "Impackt Fitness";
+  if (locationFirst && !/india|telangana|hyderabad/i.test(locationFirst)) {
+    return `${name} (${locationFirst})`;
+  }
+  return DEFAULT_CULT_GYM_LABEL;
+}
+
+/** Drive names matching existing Cult files, e.g. Impackt Fitness (Gowlidoddi)_Apr'26_Mnt End.pdf */
+export function cultInvoiceCanonicalName(
+  kind: "settlement" | "tax_invoice",
+  month: number,
+  year: number,
+  gymLabel = DEFAULT_CULT_GYM_LABEL
+): string {
+  const short = MONTH_SHORT[month - 1] ?? "Jan";
+  const yy = String(year).slice(-2);
+  if (kind === "settlement") {
+    return `${gymLabel}_${short}'${yy}_Mnt End.pdf`;
+  }
+  return `${gymLabel}_${short}${year}_Tax Invoice.pdf`;
+}
+
+export function driveFileIdFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  return match?.[1] ?? null;
 }
 
 function yearFromToken(token: string): number | null {

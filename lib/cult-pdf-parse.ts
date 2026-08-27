@@ -158,3 +158,19 @@ export function validateCultSettlementParse(
     errors,
   };
 }
+
+export function validateCultTaxInvoiceParse(parsed: ParsedCultPdf): {
+  ok: boolean;
+  taxInvoiceGrossTotal: number | null;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  if (parsed.taxInvoiceGrossTotal == null || parsed.taxInvoiceGrossTotal <= 0) {
+    errors.push("Tax invoice Gross Total was not found in the PDF");
+  }
+  return {
+    ok: errors.length === 0,
+    taxInvoiceGrossTotal: parsed.taxInvoiceGrossTotal,
+    errors,
+  };
+}

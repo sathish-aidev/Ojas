@@ -15,7 +15,7 @@ import {
   type DriveFileMeta,
 } from "@/lib/google/drive-archive";
 import {
-  classifyCultInvoiceName,
+  classifyCultInvoice,
   parseCultInvoiceFilename,
   type CultInvoiceKind,
 } from "@/lib/cult-invoice-parse";
@@ -57,7 +57,7 @@ function toCultFile(file: DriveFileMeta, folderHint: string): CultDriveFile {
     name: file.name,
     webViewLink: file.webViewLink ?? `https://drive.google.com/file/d/${file.id}/view`,
     mimeType: file.mimeType,
-    kind: classifyCultInvoiceName(file.name),
+    kind: classifyCultInvoice(file.name, folderHint),
     month: parsed.month,
     year: parsed.year,
     modifiedTime: file.modifiedTime,
@@ -80,7 +80,7 @@ async function collectFromFolder(
       continue;
     }
     if (!isPdfOrDoc(child)) continue;
-    const kind = classifyCultInvoiceName(child.name);
+    const kind = classifyCultInvoice(child.name, folderHint);
     const inCultFolder = /cult|settlement|tax invoice/i.test(folderHint);
     if (!inCultFolder && kind === "unknown" && !/impackt|cult|curefit/i.test(child.name)) {
       continue;

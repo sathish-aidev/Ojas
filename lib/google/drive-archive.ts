@@ -259,12 +259,55 @@ export async function uploadFileToFolder(
   return res.data.webViewLink ?? `https://drive.google.com/file/d/${res.data.id}/view`;
 }
 
+export async function uploadOrReplacePdfInFolder(
+  folderId: string,
+  filename: string,
+  buffer: Buffer
+): Promise<string> {
+  const drive = await getDriveClient();
+  const escaped = filename.replace(/'/g, "\\'");
+  const existing = await drive.files.list({
+    q: `'${folderId}' in parents and name='${escaped}' and trashed=false`,
+    fields: "files(id,webViewLink)",
+    pageSize: 1,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  const current = existing.data.files?.[0];
+  if (current?.id) {
+    const updated = await drive.files.update({
+      fileId: current.id,
+      media: {
+        mimeType: "application/pdf",
+        body: Readable.from(buffer),
+      },
+      fields: "id,webViewLink",
+      supportsAllDrives: true,
+    });
+    return (
+      updated.data.webViewLink ??
+      current.webViewLink ??
+      `https://drive.google.com/file/d/${current.id}/view`
+    );
+  }
+  return uploadFileToFolder(folderId, filename, buffer, "application/pdf");
+}
+
+export async function renameDriveFile(fileId: string, name: string): Promise<void> {
+  const drive = await getDriveClient();
+  await drive.files.update({
+    fileId,
+    requestBody: { name },
+    supportsAllDrives: true,
+  });
+}
+
 export async function uploadPdfToFolder(
   folderId: string,
   filename: string,
   buffer: Buffer
 ): Promise<string> {
-  return uploadFileToFolder(folderId, filename, buffer, "application/pdf");
+  return uploadOrReplacePdfInFolder(folderId, filename, buffer);
 }
 
 async function exportSpreadsheetXlsx(spreadsheetId: string): Promise<Buffer> {
