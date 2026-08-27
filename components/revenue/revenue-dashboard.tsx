@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatCurrency } from "@/lib/utils";
+import { RDS_HINT, RDS_LABEL } from "@/lib/revenue-constants";
 import type { RevenueMonthSummary } from "@/lib/services/revenue-summary";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,20 @@ export function RevenueDashboard({
   expensesPath: string;
 }) {
   const maxExpense = Math.max(1, ...summary.expensesByCategory.map((c) => c.amount));
+  const showCash =
+    summary.moneyReceived != null ||
+    summary.rds != null ||
+    summary.settlement?.centerCollections != null ||
+    summary.settlement?.midMonthPayment != null ||
+    summary.settlement?.grossPayable != null;
+  const cultSubtitle =
+    summary.cultIncomeSource === "partner_share"
+      ? `${summary.cultIncomeLabel} · ${RDS_LABEL} is not added to income`
+      : summary.cultIncome > 0
+        ? summary.cultIncomeLabel
+        : summary.settlement?.taxInvoiceDriveUrl
+          ? "Tax invoice linked — settlement PDF not read yet"
+          : summary.cultIncomeLabel;
 
   return (
     <div className="space-y-6">
@@ -57,13 +72,7 @@ export function RevenueDashboard({
         <StatCard
           title="Cult income"
           value={inr(summary.cultIncome)}
-          subtitle={
-            summary.cultIncome > 0
-              ? summary.cultIncomeLabel
-              : summary.settlement?.taxInvoiceDriveUrl
-                ? "Tax invoice linked — settlement PDF not read yet"
-                : summary.cultIncomeLabel
-          }
+          subtitle={cultSubtitle}
         />
         <StatCard title="Owner PT share" value={inr(summary.ownerPtShare)} />
         <StatCard title="Gross income" value={inr(summary.grossIncome)} />
@@ -74,6 +83,21 @@ export function RevenueDashboard({
           highlight={summary.netResult >= 0}
         />
       </div>
+
+      {showCash ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatCard
+            title="Actual money received"
+            value={summary.moneyReceived == null ? "—" : inr(summary.moneyReceived)}
+            subtitle={summary.moneyReceivedLabel}
+          />
+          <StatCard
+            title={RDS_LABEL}
+            value={summary.rds == null ? "—" : inr(summary.rds)}
+            subtitle={RDS_HINT}
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
@@ -257,16 +281,21 @@ export function RevenueDashboard({
         </Card>
       </div>
 
-      {summary.settlement && (summary.settlement.grossPayable != null || summary.settlement.tds != null) && (
+      {showCash && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Cult cash settlement (supporting)</CardTitle>
+            <CardTitle className="text-lg">Cult cash received</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
-            <CashItem label="Centre collections" value={summary.settlement.centerCollections} />
-            <CashItem label="Mid-month payment" value={summary.settlement.midMonthPayment} />
-            <CashItem label="TDS" value={summary.settlement.tds} />
-            <CashItem label="Gross payable" value={summary.settlement.grossPayable} />
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+            <CashItem label="Actual money received" value={summary.moneyReceived} />
+            <CashItem
+              label={`${RDS_LABEL} (not added to income)`}
+              value={summary.rds}
+            />
+            <CashItem label="Partner Share (Cult income)" value={summary.partnerShare} />
+            <CashItem label="Centre collections" value={summary.settlement?.centerCollections ?? null} />
+            <CashItem label="Mid-month payment" value={summary.settlement?.midMonthPayment ?? null} />
+            <CashItem label="Gross payable" value={summary.settlement?.grossPayable ?? null} />
           </CardContent>
         </Card>
       )}

@@ -95,6 +95,9 @@ enum ExpenseCategory {
   SALARIES
   MAINTENANCE
   EQUIPMENT
+  TDS
+  GST
+  CA_FEE
   OTHERS
 }
 

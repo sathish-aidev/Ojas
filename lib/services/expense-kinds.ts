@@ -20,6 +20,9 @@ export const OWNER_BILL_CATEGORIES: ExpenseCategory[] = [
   "REPAIRS",
   "MAINTENANCE",
   "SUPPLIES",
+  "TDS",
+  "GST",
+  "CA_FEE",
   "OTHERS",
 ];
 

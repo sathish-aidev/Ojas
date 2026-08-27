@@ -2,7 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { decimalToNumber } from "@/lib/utils";
 import { paymentsCollectedInMonthWhere } from "@/lib/services/trainer-split";
 import { getCultSettlement } from "@/lib/services/cult-settlements";
-import { resolveCultIncome, EXPENSE_CATEGORY_LABELS } from "@/lib/revenue-constants";
+import {
+  resolveCultIncome,
+  resolveCultCashReceived,
+  EXPENSE_CATEGORY_LABELS,
+} from "@/lib/revenue-constants";
 import { shiftMonth } from "@/lib/date-ymd";
 import type { ExpenseCategory } from "@prisma/client";
 import { PNL_EXPENSE_KINDS, sumPnlExpenses } from "@/lib/services/expense-kinds";
@@ -43,6 +47,9 @@ export type RevenueMonthSummary = {
   totalCosts: number;
   grossIncome: number;
   netResult: number;
+  moneyReceived: number | null;
+  rds: number | null;
+  moneyReceivedLabel: string;
   settlement: Awaited<ReturnType<typeof getCultSettlement>>;
 };
 
@@ -172,6 +179,13 @@ export async function getRevenueMonthSummary(
   });
   const grossIncome = cult.amount + pt.ownerPtShare;
   const totalCosts = expenses.manualExpenses + payroll.payrollPaid;
+  const cash = resolveCultCashReceived({
+    centerCollections: settlement?.centerCollections ?? null,
+    midMonthPayment: settlement?.midMonthPayment ?? null,
+    grossPayable: settlement?.grossPayable ?? null,
+    partnerShare: settlement?.partnerShare ?? null,
+    tds: settlement?.tds ?? null,
+  });
 
   return {
     month,
@@ -194,6 +208,9 @@ export async function getRevenueMonthSummary(
     totalCosts,
     grossIncome,
     netResult: grossIncome - totalCosts,
+    moneyReceived: cash.moneyReceived,
+    rds: cash.rds,
+    moneyReceivedLabel: cash.label,
     settlement,
   };
 }

@@ -36,6 +36,7 @@ export function ExpensesWorkspace({
   monthExpenses,
   yearExpenses,
   sheetUrl,
+  supervisorSheetUrl,
   sheetError,
   role,
 }: {
@@ -44,6 +45,7 @@ export function ExpensesWorkspace({
   monthExpenses: SerializedExpense[];
   yearExpenses: SerializedExpense[];
   sheetUrl?: string | null;
+  supervisorSheetUrl?: string | null;
   sheetError?: string | null;
   role: UserRole;
 }) {
@@ -263,6 +265,7 @@ export function ExpensesWorkspace({
         expenses={filtered}
         monthLabel={range === "month" ? monthLabel : `${dashboard.year} (filtered)`}
         sheetUrl={sheetUrl}
+        supervisorSheetUrl={supervisorSheetUrl}
         sheetError={sheetError}
         role={role}
       />

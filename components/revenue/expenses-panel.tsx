@@ -42,12 +42,14 @@ export function ExpensesPanel({
   expenses,
   monthLabel,
   sheetUrl,
+  supervisorSheetUrl,
   sheetError,
   role,
 }: {
   expenses: SerializedExpense[];
   monthLabel: string;
   sheetUrl?: string | null;
+  supervisorSheetUrl?: string | null;
   sheetError?: string | null;
   role: UserRole;
 }) {
@@ -197,15 +199,48 @@ export function ExpensesPanel({
           <div>
             <CardTitle className="text-lg">{title}</CardTitle>
             <CardDescription>
-              {description} Sheet tab: Expenses
-              {sheetUrl ? (
+              {description}{" "}
+              {isOwner ? (
                 <>
-                  {" · "}
-                  <a className="underline" href={sheetUrl} target="_blank" rel="noreferrer">
-                    Open Expenses sheet
-                  </a>
+                  Sheet tabs: Expenses
+                  {sheetUrl ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={sheetUrl} target="_blank" rel="noreferrer">
+                        Open Expenses
+                      </a>
+                    </>
+                  ) : null}
+                  {" · "}Supervisor spends
+                  {supervisorSheetUrl ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={supervisorSheetUrl} target="_blank" rel="noreferrer">
+                        Open Supervisor spends
+                      </a>
+                    </>
+                  ) : null}
                 </>
-              ) : null}
+              ) : (
+                <>
+                  Sheet tab: Supervisor spends
+                  {supervisorSheetUrl ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={supervisorSheetUrl} target="_blank" rel="noreferrer">
+                        Open Supervisor spends sheet
+                      </a>
+                    </>
+                  ) : sheetUrl ? (
+                    <>
+                      {" · "}
+                      <a className="underline" href={sheetUrl} target="_blank" rel="noreferrer">
+                        Open sheet
+                      </a>
+                    </>
+                  ) : null}
+                </>
+              )}
               {sheetError ? ` · Sheet: ${sheetError}` : null}
             </CardDescription>
           </div>

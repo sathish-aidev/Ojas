@@ -10,6 +10,9 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   SALARIES: "Salaries",
   MAINTENANCE: "Maintenance",
   EQUIPMENT: "Equipment",
+  TDS: "TDS",
+  GST: "GST",
+  CA_FEE: "CA fee",
   OTHERS: "Others",
 };
 
@@ -38,6 +41,12 @@ const CATEGORY_ALIASES: Record<string, ExpenseCategory> = {
   equipment: "EQUIPMENT",
   equip: "EQUIPMENT",
   machines: "EQUIPMENT",
+  tds: "TDS",
+  gst: "GST",
+  "ca fee": "CA_FEE",
+  "ca fees": "CA_FEE",
+  ca: "CA_FEE",
+  "chartered accountant": "CA_FEE",
   others: "OTHERS",
   other: "OTHERS",
   misc: "OTHERS",
@@ -78,6 +87,60 @@ export function resolveCultIncome(input: {
     };
   }
   return { amount: 0, source: "none", label: CULT_INCOME_SOURCE_LABELS.none };
+}
+
+export const RDS_LABEL = "RDS";
+export const RDS_HINT = "Withheld by Cult — not added to income";
+
+export type CultCashReceivedSource = "cash_legs" | "partner_share_minus_rds" | "none";
+
+export function resolveCultCashReceived(input: {
+  centerCollections: number | null;
+  midMonthPayment: number | null;
+  grossPayable: number | null;
+  partnerShare: number | null;
+  tds: number | null;
+}): {
+  moneyReceived: number | null;
+  rds: number | null;
+  source: CultCashReceivedSource;
+  label: string;
+} {
+  const rds = input.tds;
+  const legs = [input.centerCollections, input.midMonthPayment, input.grossPayable];
+  const allLegs = legs.every((value) => value != null);
+  const anyLeg = legs.some((value) => value != null);
+
+  if (allLegs) {
+    const moneyReceived = legs.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    return {
+      moneyReceived,
+      rds,
+      source: "cash_legs",
+      label: "Centre + mid-month + gross payable",
+    };
+  }
+
+  if (input.partnerShare != null && rds != null) {
+    return {
+      moneyReceived: input.partnerShare - rds,
+      rds,
+      source: "partner_share_minus_rds",
+      label: "Partner Share minus RDS",
+    };
+  }
+
+  if (anyLeg) {
+    const moneyReceived = legs.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+    return {
+      moneyReceived,
+      rds,
+      source: "cash_legs",
+      label: "Centre + mid-month + gross payable (partial)",
+    };
+  }
+
+  return { moneyReceived: null, rds, source: "none", label: "Not entered" };
 }
 
 export function paymentModeLabel(mode: PaymentMode | null | undefined): string {

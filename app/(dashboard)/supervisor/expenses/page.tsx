@@ -47,6 +47,7 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
         monthExpenses={monthExpenses}
         yearExpenses={yearExpenses}
         sheetUrl={sheet.spreadsheetUrl}
+        supervisorSheetUrl={sheet.supervisorSpreadsheetUrl}
         sheetError={sheet.error}
         role={user.role}
       />

@@ -100,7 +100,7 @@ Auth: Session cookie (NextAuth JWT)
 | POST | `/expenses` | gymExpenseSchema (`kind` optional) | Owner: bill or cash given. Supervisor: spend only |
 | PATCH | `/expenses/[id]` | partial gymExpenseSchema | Owner all; Supervisor spends only |
 | DELETE | `/expenses/[id]` | — | Owner all; Supervisor spends only |
-| POST | `/expenses/sync` | merge Expenses sheet → DB | Owner, Supervisor |
+| POST | `/expenses/sync` | merge Expenses + Supervisor spends sheets → DB | Owner, Supervisor |
 
 ---
 

@@ -12,6 +12,7 @@ import {
   TRAINER_SHEET_TABS,
   BACKUP_TAB_PREFIX,
   EXPENSES_TAB_NAME,
+  SUPERVISOR_SPENDS_TAB_NAME,
   CULT_INVOICES_FOLDER,
   CULT_SETTLEMENT_FOLDER,
   CULT_TAX_INVOICE_FOLDER,
@@ -406,7 +407,7 @@ export async function backupTrainerTabsInSpreadsheet(
 
   const created: string[] = [];
 
-  const tabsToBackup = [...TRAINER_SHEET_TABS, EXPENSES_TAB_NAME];
+  const tabsToBackup = [...TRAINER_SHEET_TABS, EXPENSES_TAB_NAME, SUPERVISOR_SPENDS_TAB_NAME];
 
   for (const tabName of tabsToBackup) {
     const sourceSheet = sourceMeta.data.sheets?.find(

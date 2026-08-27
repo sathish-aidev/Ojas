@@ -248,6 +248,9 @@ export const expenseCategorySchema = z.enum([
   "SALARIES",
   "MAINTENANCE",
   "EQUIPMENT",
+  "TDS",
+  "GST",
+  "CA_FEE",
   "OTHERS",
 ]);
 

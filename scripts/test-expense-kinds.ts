@@ -49,7 +49,12 @@ function main() {
   assert(canMutateExpenseKind("SUPERVISOR", "SUPERVISOR_SPEND"), "Supervisor can edit spends");
 
   console.log("\n3. Categories");
-  assert(isCategoryAllowedForKind("OWNER_BILL", "RENT"), "Rent is a gym bill");
+  assert(isCategoryAllowedForKind("OWNER_BILL", "TDS"), "TDS is an owner gym bill");
+  assert(isCategoryAllowedForKind("OWNER_BILL", "GST"), "GST is an owner gym bill");
+  assert(isCategoryAllowedForKind("OWNER_BILL", "CA_FEE"), "CA fee is an owner gym bill");
+  assert(!isCategoryAllowedForKind("SUPERVISOR_SPEND", "TDS"), "Supervisor cannot spend as TDS");
+  assert(!isCategoryAllowedForKind("SUPERVISOR_SPEND", "GST"), "Supervisor cannot spend as GST");
+  assert(!isCategoryAllowedForKind("SUPERVISOR_SPEND", "CA_FEE"), "Supervisor cannot spend as CA fee");
   assert(isCategoryAllowedForKind("OWNER_BILL", "EQUIPMENT"), "Equipment is a gym bill");
   assert(!isCategoryAllowedForKind("SUPERVISOR_SPEND", "RENT"), "Supervisor cannot spend as Rent");
   assert(!isCategoryAllowedForKind("SUPERVISOR_SPEND", "SALARIES"), "Supervisor cannot spend as Salaries");
@@ -128,6 +133,15 @@ function main() {
     amount: "85000",
   });
   assert(bill.success, "Owner bill without kind still validates");
+
+  const taxBill = gymExpenseSchema.safeParse({
+    date: "2026-08-25",
+    kind: "OWNER_BILL",
+    category: "CA_FEE",
+    description: "CA filing",
+    amount: 5000,
+  });
+  assert(taxBill.success, "Owner bill + CA fee validates");
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   if (failed > 0) process.exit(1);

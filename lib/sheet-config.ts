@@ -8,6 +8,7 @@ export const REPORTS_FOLDER_NAME = "Reports";
 export const WEEKLY_BACKUPS_FOLDER = "Backups";
 export const BACKUP_TAB_PREFIX = "Backup ";
 export const EXPENSES_TAB_NAME = "Expenses";
+export const SUPERVISOR_SPENDS_TAB_NAME = "Supervisor spends";
 export const EXPENSES_SPREADSHEET_NAME = "Impackt Fitness Expenses";
 export const CULT_INVOICES_FOLDER = "Cult_Invoices";
 export const CULT_SETTLEMENT_FOLDER = "Settlement_Statements";
@@ -17,6 +18,17 @@ export const EXPENSE_SHEET_HEADERS = [
   "Id",
   "Date",
   "Type",
+  "Category",
+  "Description",
+  "Amount",
+  "Payment Mode",
+  "Paid By",
+  "Notes",
+] as const;
+
+export const SUPERVISOR_SPEND_SHEET_HEADERS = [
+  "Id",
+  "Date",
   "Category",
   "Description",
   "Amount",

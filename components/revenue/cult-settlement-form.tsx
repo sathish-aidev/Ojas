@@ -476,7 +476,7 @@ export function CultSettlementForm({
               <Field id="maintInfraCharges" name="maintInfraCharges" label="Maint / infra charges" defaultValue={settlement?.maintInfraCharges} />
               <Field id="centerCollections" name="centerCollections" label="Collected at centre" defaultValue={settlement?.centerCollections} />
               <Field id="midMonthPayment" name="midMonthPayment" label="Mid-month payment" defaultValue={settlement?.midMonthPayment} />
-              <Field id="tds" name="tds" label="TDS" defaultValue={settlement?.tds} />
+              <Field id="tds" name="tds" label="RDS (TDS withheld)" defaultValue={settlement?.tds} hint="Not added to Cult income" />
               <Field id="grossPayable" name="grossPayable" label="Gross payable" defaultValue={settlement?.grossPayable} />
             </div>
           )}

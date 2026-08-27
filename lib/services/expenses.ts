@@ -15,13 +15,14 @@ import { parseExpenseCategory, EXPENSE_CATEGORY_LABELS, paymentModeLabel } from 
 import { fromYmd, toYmd, shiftMonth } from "@/lib/date-ymd";
 import {
   deleteExpenseSheetRow,
-  ensureExpensesTab,
-  fetchExpenseSheetRows,
+  ensureExpenseSheets,
+  expenseSheetUrl,
+  fetchAllExpenseSheetRows,
   rewriteExpenseSheet,
   upsertExpenseSheetRow,
   type ExpenseSheetRow,
 } from "@/lib/google/expense-sheet";
-import { EXPENSES_TAB_NAME } from "@/lib/sheet-config";
+import { EXPENSES_TAB_NAME, SUPERVISOR_SPENDS_TAB_NAME } from "@/lib/sheet-config";
 import {
   authorizeExpenseWrite,
   defaultKindForRole,
@@ -30,6 +31,7 @@ import {
   parseExpenseKind,
   pettyCashFromRows,
   sumPnlExpenses,
+  EXPENSE_KIND_LABELS,
 } from "@/lib/services/expense-kinds";
 
 export type SerializedExpense = {
@@ -131,21 +133,27 @@ async function withSheetWrite(
 
 export async function prepareExpenseSheet(): Promise<{
   spreadsheetUrl: string | null;
+  supervisorSpreadsheetUrl: string | null;
   tabName: string;
+  supervisorTabName: string;
   error: string | null;
 }> {
   try {
-    const tab = await ensureExpensesTab();
+    const tabs = await ensureExpenseSheets();
     return {
-      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${tab.spreadsheetId}#gid=${tab.sheetId}`,
+      spreadsheetUrl: expenseSheetUrl(tabs.spreadsheetId, tabs.ownerSheetId),
+      supervisorSpreadsheetUrl: expenseSheetUrl(tabs.spreadsheetId, tabs.supervisorSheetId),
       tabName: EXPENSES_TAB_NAME,
+      supervisorTabName: SUPERVISOR_SPENDS_TAB_NAME,
       error: null,
     };
   } catch (err) {
     return {
       spreadsheetUrl: null,
+      supervisorSpreadsheetUrl: null,
       tabName: EXPENSES_TAB_NAME,
-      error: err instanceof Error ? err.message : "Could not open the Expenses sheet",
+      supervisorTabName: SUPERVISOR_SPENDS_TAB_NAME,
+      error: err instanceof Error ? err.message : "Could not open the Expenses sheets",
     };
   }
 }
@@ -436,75 +444,157 @@ function cell(row: string[], idx: number) {
   return idx >= 0 ? (row[idx] ?? "").trim() : "";
 }
 
-export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) {
-  const rows = await fetchExpenseSheetRows();
+function parseExpenseTabRows(
+  tabLabel: string,
+  rows: string[][],
+  defaultKind: ExpenseKind
+): Array<{
+  rowNumber: number;
+  id: string;
+  data: {
+    date: Date;
+    month: number;
+    year: number;
+    kind: ExpenseKind;
+    category: ExpenseCategory;
+    description: string;
+    amount: number;
+    paymentMode: PaymentMode | null;
+    paidBy: string | null;
+    notes: string | null;
+  };
+  error?: string;
+}> {
+  const parsed: Array<{
+    rowNumber: number;
+    id: string;
+    data: {
+      date: Date;
+      month: number;
+      year: number;
+      kind: ExpenseKind;
+      category: ExpenseCategory;
+      description: string;
+      amount: number;
+      paymentMode: PaymentMode | null;
+      paidBy: string | null;
+      notes: string | null;
+    };
+    error?: string;
+  }> = [];
   const headerIdx = findHeaderRow(rows);
-  const created: string[] = [];
-  const updated: string[] = [];
-  const errors: string[] = [];
-
   if (headerIdx < 0) {
-    errors.push("Expenses tab is missing a header row (Date, Category, Amount)");
-  } else {
-    const header = rows[headerIdx].map((h) => h.trim());
-    const idCol = colIndex(header, "Id");
-    const dateCol = colIndex(header, "Date");
-    const typeCol = colIndex(header, "Type");
-    const catCol = colIndex(header, "Category");
-    const descCol = colIndex(header, "Description");
-    const amtCol = colIndex(header, "Amount");
-    const modeCol = colIndex(header, "Payment Mode");
-    const paidCol = colIndex(header, "Paid By");
-    const notesCol = colIndex(header, "Notes");
+    parsed.push({
+      rowNumber: 0,
+      id: "",
+      data: {
+        date: new Date(0),
+        month: 1,
+        year: 1970,
+        kind: defaultKind,
+        category: "OTHERS",
+        description: "",
+        amount: 0,
+        paymentMode: null,
+        paidBy: null,
+        notes: null,
+      },
+      error: `${tabLabel} is missing a header row (Date, Category, Amount)`,
+    });
+    return parsed;
+  }
 
-    for (let i = headerIdx + 1; i < rows.length; i++) {
-      const row = rows[i] ?? [];
-      const rowNumber = i + 1;
-      const id = cell(row, idCol);
-      const dateRaw = cell(row, dateCol);
-      const categoryRaw = cell(row, catCol);
-      const description = cell(row, descCol);
-      const amountRaw = cell(row, amtCol);
+  const header = rows[headerIdx].map((h) => h.trim());
+  const idCol = colIndex(header, "Id");
+  const dateCol = colIndex(header, "Date");
+  const typeCol = colIndex(header, "Type");
+  const catCol = colIndex(header, "Category");
+  const descCol = colIndex(header, "Description");
+  const amtCol = colIndex(header, "Amount");
+  const modeCol = colIndex(header, "Payment Mode");
+  const paidCol = colIndex(header, "Paid By");
+  const notesCol = colIndex(header, "Notes");
 
-      if (!dateRaw && !categoryRaw && !description && !amountRaw && !id) continue;
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i] ?? [];
+    const rowNumber = i + 1;
+    const id = cell(row, idCol);
+    const dateRaw = cell(row, dateCol);
+    const categoryRaw = cell(row, catCol);
+    const description = cell(row, descCol);
+    const amountRaw = cell(row, amtCol);
 
-      const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw)
-        ? fromYmd(dateRaw)
-        : parseFlexibleDate(dateRaw);
-      const kindRaw = cell(row, typeCol);
-      const kind = kindRaw ? parseExpenseKind(kindRaw) : "OWNER_BILL";
-      const category = parseExpenseCategory(categoryRaw);
-      const amount = parseMoney(amountRaw);
+    if (!dateRaw && !categoryRaw && !description && !amountRaw && !id) continue;
 
-      if (!date) {
-        errors.push(`Row ${rowNumber}: invalid date`);
-        continue;
-      }
-      if (!kind) {
-        errors.push(`Row ${rowNumber}: unknown type "${kindRaw}"`);
-        continue;
-      }
-      if (!category) {
-        errors.push(`Row ${rowNumber}: unknown category "${categoryRaw}"`);
-        continue;
-      }
-      if (!isCategoryAllowedForKind(kind, category)) {
-        errors.push(`Row ${rowNumber}: ${categoryRaw} is not allowed for ${kindRaw || "Owner bill"}`);
-        continue;
-      }
-      if (amount == null || amount <= 0) {
-        errors.push(`Row ${rowNumber}: amount must be greater than 0`);
-        continue;
-      }
-      if (!description) {
-        errors.push(`Row ${rowNumber}: description required`);
-        continue;
-      }
+    const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw)
+      ? fromYmd(dateRaw)
+      : parseFlexibleDate(dateRaw);
+    const kindRaw = cell(row, typeCol);
+    const kind = kindRaw ? parseExpenseKind(kindRaw) : defaultKind;
+    const category = parseExpenseCategory(categoryRaw);
+    const amount = parseMoney(amountRaw);
+    const label = `${tabLabel} row ${rowNumber}`;
 
-      const payment = mapPaymentMode(cell(row, modeCol));
-      const paidBy = cell(row, paidCol) || null;
-      const notes = cell(row, notesCol) || null;
-      const data = {
+    if (!date) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: invalid date`,
+      });
+      continue;
+    }
+    if (!kind) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: unknown type "${kindRaw}"`,
+      });
+      continue;
+    }
+    if (!category) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: unknown category "${categoryRaw}"`,
+      });
+      continue;
+    }
+    if (!isCategoryAllowedForKind(kind, category)) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: ${categoryRaw} is not allowed for ${kindRaw || EXPENSE_KIND_LABELS[kind]}`,
+      });
+      continue;
+    }
+    if (amount == null || amount <= 0) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: amount must be greater than 0`,
+      });
+      continue;
+    }
+    if (!description) {
+      parsed.push({
+        rowNumber,
+        id,
+        data: emptyParseData(defaultKind),
+        error: `${label}: description required`,
+      });
+      continue;
+    }
+
+    const payment = mapPaymentMode(cell(row, modeCol));
+    parsed.push({
+      rowNumber,
+      id,
+      data: {
         date,
         month: date.getMonth() + 1,
         year: date.getFullYear(),
@@ -513,28 +603,61 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
         description,
         amount,
         paymentMode: cell(row, modeCol) ? payment.mode : null,
-        paidBy,
-        notes,
-      };
+        paidBy: cell(row, paidCol) || null,
+        notes: cell(row, notesCol) || null,
+      },
+    });
+  }
 
+  return parsed;
+}
+
+function emptyParseData(kind: ExpenseKind) {
+  return {
+    date: new Date(0),
+    month: 1,
+    year: 1970,
+    kind,
+    category: "OTHERS" as ExpenseCategory,
+    description: "",
+    amount: 0,
+    paymentMode: null,
+    paidBy: null,
+    notes: null,
+  };
+}
+
+export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) {
+  const tabs = await fetchAllExpenseSheetRows();
+  const created: string[] = [];
+  const updated: string[] = [];
+  const errors: string[] = [];
+
+  for (const tab of tabs) {
+    const parsed = parseExpenseTabRows(tab.title, tab.rows, tab.defaultKind);
+    for (const item of parsed) {
+      if (item.error) {
+        errors.push(item.error);
+        continue;
+      }
       try {
-        if (id) {
+        if (item.id) {
           const existing = await prisma.gymExpense.findFirst({
-            where: { id, gymId },
+            where: { id: item.id, gymId },
           });
           if (existing) {
             await prisma.gymExpense.update({
-              where: { id },
-              data: { ...data, updatedByUserId: triggeredBy },
+              where: { id: item.id },
+              data: { ...item.data, updatedByUserId: triggeredBy },
             });
-            updated.push(id);
+            updated.push(item.id);
             continue;
           }
         }
 
         const createdRow = await prisma.gymExpense.create({
           data: {
-            ...data,
+            ...item.data,
             gymId,
             createdByUserId: triggeredBy,
             source: "IMPORT",
@@ -543,7 +666,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
         created.push(createdRow.id);
       } catch (err) {
         errors.push(
-          `Row ${rowNumber}: ${err instanceof Error ? err.message : "save failed"}`
+          `${tab.title} row ${item.rowNumber}: ${err instanceof Error ? err.message : "save failed"}`
         );
       }
     }
@@ -557,7 +680,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
     });
     await rewriteExpenseSheet(all.map(toSheetPayload));
   } catch (err) {
-    sheetError = err instanceof Error ? err.message : "Failed to rewrite Expenses tab";
+    sheetError = err instanceof Error ? err.message : "Failed to rewrite expense sheets";
   }
 
   const status =
