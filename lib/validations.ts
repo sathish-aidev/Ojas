@@ -290,6 +290,7 @@ export const cultSettlementSchema = z.object({
   centerCollections: optionalFiniteNumber,
   midMonthPayment: optionalFiniteNumber,
   tds: optionalFiniteNumber,
+  leasingEmi: optionalFiniteNumber,
   grossPayable: optionalFiniteNumber,
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
   settlementDriveUrl: optionalUrl,

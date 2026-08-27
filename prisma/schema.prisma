@@ -508,6 +508,7 @@ model CultSettlement {
   centerCollections      Decimal? @db.Decimal(12, 2)
   midMonthPayment        Decimal? @db.Decimal(12, 2)
   tds                    Decimal? @db.Decimal(12, 2)
+  leasingEmi             Decimal? @db.Decimal(12, 2)
   grossPayable           Decimal? @db.Decimal(12, 2)
   breakdown              Json?
   notes                  String?

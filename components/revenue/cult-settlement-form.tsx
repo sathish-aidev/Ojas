@@ -256,6 +256,11 @@ export function CultSettlementForm({
                   `TDS: ${
                     typeof preview.data.tds === "number" ? formatCurrency(preview.data.tds) : "—"
                   }\n` +
+                  `Leasing EMI: ${
+                    typeof preview.data.leasingEmi === "number"
+                      ? formatCurrency(preview.data.leasingEmi)
+                      : "—"
+                  }\n` +
                   `Gross Payable: ${
                     typeof preview.data.grossPayable === "number"
                       ? formatCurrency(preview.data.grossPayable)
@@ -374,8 +379,8 @@ export function CultSettlementForm({
             <CardTitle className="text-lg">Cult / Curefit settlement</CardTitle>
             <CardDescription>
               Upload a settlement (Mnt End) or tax invoice here — the app stores it in Drive with
-              the month in the filename and fills that month. Or drop PDFs in the folders below and
-              click Scan Drive.
+              the month in the filename and fills that month. Scan Drive re-reads settlement PDFs
+              so Cult received stays in line with the PDF (blank mid-month, TDS, leasing EMI).
             </CardDescription>
           </div>
           {source && source.source !== "none" && (
@@ -549,6 +554,7 @@ export function CultSettlementForm({
               <Field id="centerCollections" name="centerCollections" label="Collected at centre" defaultValue={settlement?.centerCollections} />
               <Field id="midMonthPayment" name="midMonthPayment" label="Mid-month payment" defaultValue={settlement?.midMonthPayment} />
               <Field id="tds" name="tds" label="TDS withheld" defaultValue={settlement?.tds} hint="Not added to Cult income" />
+              <Field id="leasingEmi" name="leasingEmi" label="Leasing EMI" defaultValue={settlement?.leasingEmi} hint="Deducted by Cult — not added to income" />
               <Field id="grossPayable" name="grossPayable" label="Gross payable" defaultValue={settlement?.grossPayable} />
             </div>
           )}

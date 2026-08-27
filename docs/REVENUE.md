@@ -6,7 +6,7 @@ Owner modules: **Revenue** (P&L) and **Expenses**. Supervisor: **Expenses**.
 
 ```
 Cult income
-  = Actual money received when known (centre + mid-month + gross payable, or Partner Share minus TDS)
+  = Actual money received when known (centre + mid-month + gross payable, or Partner Share minus TDS and leasing EMI)
     else Partner Share if entered
     else Tax Invoice Gross Total (interim, while settlement is delayed)
 + Total PT (owner share + trainer share from the PT tracker)
@@ -15,7 +15,10 @@ Cult income
 = Net monthly result
 ```
 
-**TDS** (withheld by Cult) is shown on Monthly revenue and in the 12-month table but **not added to income**. Example Apr 2026: Partner Share ₹8,09,198, TDS ₹15,413, Cult income / money received ₹7,93,785.
+**TDS** (withheld by Cult) and **Leasing EMI** (when Cult deducts equipment EMI) are shown on Monthly revenue but **not added to income**. Cult received is Partner Share minus those recoveries, which matches centre collections + mid-month + gross payable.
+
+Example Apr 2026: Partner Share ₹8,09,198, TDS ₹15,413, Cult income / money received ₹7,93,785.  
+Example Feb 2026: Partner Share ₹7,75,772, TDS ₹14,777, Leasing EMI ₹1,48,757, Cult received ₹6,12,238.
 
 Trainer PT share is included in Total PT and again in payroll, so it does not increase Net twice.
 
@@ -44,11 +47,11 @@ Impackt Fitness (Gowlidoddi)_Apr'26_Mnt End.pdf
 Impackt Fitness (Gowlidoddi)_Apr2026_Tax Invoice.pdf
 ```
 
-**Scan Drive for invoices** reads new PDFs, matches the month from the filename or the PDF period (`From: 01-April-2026`), fills that month’s Cult figures (including TDS / cash received), and opens that month. Files already processed are skipped unless a new Drive file is added for the same month.
+**Scan Drive for invoices** reads PDFs, matches the month from the filename or the PDF period (`From: 01-April-2026`), fills that month’s Cult figures (including TDS, leasing EMI, and cash received), and opens that month. Settlement PDFs are re-parsed on every scan so corrected figures overwrite older parses. Tax invoices are re-read when a new Drive file is added.
 
 Scanned image PDFs with no selectable text are stored and linked; figures must be entered by hand unless the PDF has text.
 
-Canonical P&L number: **actual money received** when TDS/cash legs are known, otherwise **Partner Share**.  
+Canonical P&L number: **actual money received** when cash legs / TDS are known (leasing EMI excluded), otherwise **Partner Share**.  
 Tax Invoice **Gross Total** is used only until Partner Share / received cash is saved.
 
 ## PT income

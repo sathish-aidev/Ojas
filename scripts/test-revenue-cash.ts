@@ -80,6 +80,40 @@ function main() {
   assert(none.moneyReceived === null, "Money received is unknown without TDS or cash legs");
   assert(none.rds === null, "TDS empty when not entered");
 
+  const feb = resolveCultCashReceived({
+    centerCollections: 255460,
+    midMonthPayment: 284789,
+    grossPayable: 71989,
+    partnerShare: 775772,
+    tds: 14777,
+    leasingEmi: 148757,
+  });
+  assert(feb.moneyReceived === 612238, "Feb Cult received excludes TDS and leasing EMI");
+  assert(feb.leasingEmi === 148757, "Feb leasing EMI is ₹1,48,757");
+  assert(feb.moneyReceived !== 775772 - 14777, "Feb is not Partner Share minus TDS only");
+
+  const jan = resolveCultCashReceived({
+    centerCollections: 99280,
+    midMonthPayment: 0,
+    grossPayable: 413554,
+    partnerShare: 674437,
+    tds: 12846,
+    leasingEmi: 148757,
+  });
+  assert(jan.moneyReceived === 512834, "Jan blank mid-month is 0 and leasing EMI is excluded");
+
+  const janLegsOnly = resolveCultCashReceived({
+    centerCollections: 99280,
+    midMonthPayment: 0,
+    grossPayable: 413554,
+    partnerShare: 674437,
+    tds: 12846,
+  });
+  assert(
+    janLegsOnly.moneyReceived === 512834,
+    "Jan cash legs already exclude EMI even if leasing EMI is not stored"
+  );
+
   const gym = resolveGymPnl({
     cultIncome: 793785,
     totalPt: 104075 + 96425,

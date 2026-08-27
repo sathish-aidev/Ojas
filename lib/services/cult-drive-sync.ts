@@ -55,9 +55,13 @@ function figuresFromPdf(parsed: ParsedCultPdf): Partial<CultSettlementInput> {
   if (parsed.centerCollections != null) patch.centerCollections = parsed.centerCollections;
   if (parsed.midMonthPayment != null) patch.midMonthPayment = parsed.midMonthPayment;
   if (parsed.tds != null) patch.tds = parsed.tds;
+  if (parsed.leasingEmi != null) patch.leasingEmi = parsed.leasingEmi;
   if (parsed.grossPayable != null) patch.grossPayable = parsed.grossPayable;
   if (parsed.periodStart) patch.periodStart = parsed.periodStart;
   if (parsed.periodEnd) patch.periodEnd = parsed.periodEnd;
+  if (check.ok) {
+    patch.leasingEmi = parsed.leasingEmi ?? 0;
+  }
   return patch;
 }
 
@@ -99,7 +103,7 @@ function shouldParsePdf(
     return false;
   }
   if (kind === "settlement") {
-    return !row || row.partnerShare == null || isNewCultDriveFile(file, row, "settlement");
+    return true;
   }
   if (kind === "tax_invoice") {
     return !row || row.taxInvoiceGrossTotal == null || isNewCultDriveFile(file, row, "tax_invoice");
@@ -182,9 +186,8 @@ export async function scanCultInvoicesFromDrive(
     const settlementCheck = parsedPdf ? validateCultSettlementParse(parsedPdf) : { ok: false };
     const overwriteFigures = Boolean(
       parsedPdf &&
-        newFile &&
         ((isSettlement && settlementCheck.ok) ||
-          (!isSettlement && parsedPdf.taxInvoiceGrossTotal != null))
+          (!isSettlement && parsedPdf.taxInvoiceGrossTotal != null && newFile))
     );
     await mergeCultSettlement(gymId, userId, key.month, key.year, patch, {
       overwriteUrls: true,
@@ -345,6 +348,7 @@ export async function ingestCultInvoicePdf(
     totalRevenue: result.parsed.totalRevenue,
     grossPayable: result.parsed.grossPayable,
     tds: result.parsed.tds,
+    leasingEmi: result.parsed.leasingEmi,
     periodStart: result.parsed.periodStart,
     periodEnd: result.parsed.periodEnd,
     canonicalName: canonical,
@@ -391,6 +395,7 @@ export async function ingestCultInvoicePdf(
     totalRevenue: result.parsed.totalRevenue,
     grossPayable: result.parsed.grossPayable,
     tds: result.parsed.tds,
+    leasingEmi: result.parsed.leasingEmi,
     canonicalName: canonical,
     warning: warnings.length ? warnings.join(" ") : null,
   };

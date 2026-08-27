@@ -1,5 +1,5 @@
 /**
- * Validate local Cult Mnt End PDFs, then write Partner Share to the DB.
+ * Validate local Cult Mnt End PDFs, then write figures to the local DB.
  *
  *   npx tsx scripts/backfill-cult-settlements.ts
  *   npx tsx scripts/backfill-cult-settlements.ts --apply
@@ -9,7 +9,6 @@ import { readdir, readFile } from "fs/promises";
 import path from "path";
 
 config({ path: ".env" });
-config({ path: ".env.vercel.production", override: true });
 
 import { PrismaClient } from "@prisma/client";
 import { extractText, getDocumentProxy } from "unpdf";
@@ -19,12 +18,13 @@ import { fromYmd } from "../lib/date-ymd";
 import { decimalToNumber } from "../lib/utils";
 
 const DEFAULT_FOLDER =
-  "c:\\Users\\SATHISH\\OneDrive\\Documents\\SparkverseFitness_Documents\\cult_Invoices_2026";
+  "c:\\Users\\SATHISH\\OneDrive\\Documents\\SparkverseFitness_Documents\\cult_Invoices_2026\\Settlement";
 
 const JAN_2026 = {
   partnerShare: 674437,
   totalRevenue: 874968,
   grossPayable: 413554,
+  leasingEmi: 148757,
 };
 
 const apply = process.argv.includes("--apply");
@@ -89,7 +89,8 @@ async function main() {
         if (
           parsed.partnerShare !== JAN_2026.partnerShare ||
           parsed.totalRevenue !== JAN_2026.totalRevenue ||
-          parsed.grossPayable !== JAN_2026.grossPayable
+          parsed.grossPayable !== JAN_2026.grossPayable ||
+          parsed.leasingEmi !== JAN_2026.leasingEmi
         ) {
           throw new Error(
             `January PDF did not match expected Partner Share ${JAN_2026.partnerShare}, Total Revenue ${JAN_2026.totalRevenue}, Gross Payable ${JAN_2026.grossPayable}`
@@ -131,6 +132,7 @@ async function main() {
           centerCollections: item.parsed.centerCollections,
           midMonthPayment: item.parsed.midMonthPayment,
           tds: item.parsed.tds,
+          leasingEmi: item.parsed.leasingEmi ?? 0,
           grossPayable: item.parsed.grossPayable,
           enteredByUserId: owner.id,
         },
@@ -148,6 +150,7 @@ async function main() {
           centerCollections: item.parsed.centerCollections,
           midMonthPayment: item.parsed.midMonthPayment,
           tds: item.parsed.tds,
+          leasingEmi: item.parsed.leasingEmi ?? 0,
           grossPayable: item.parsed.grossPayable,
           enteredByUserId: owner.id,
         },

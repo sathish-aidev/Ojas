@@ -41,6 +41,7 @@
 - [x] P&L Net = Cult received + Total PT − expenses − paid payroll (base + trainer PT share)
 - [x] Split Google Sheets: **Expenses** for owner gym costs; **Supervisor spends** tab for petty-cash lines (not in Revenue)
 - [x] Extra expense types: TDS, GST, and CA fee
+- [x] Cult received excludes TDS and leasing EMI; blank Less: lines (e.g. mid-month) count as ₹0
 - [ ] Month lock after historic catch-up
 - [ ] Choose DB-only expenses once history is complete
 - [ ] Cult PDF OCR for scanned image invoices

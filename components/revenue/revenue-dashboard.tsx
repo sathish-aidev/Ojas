@@ -59,12 +59,15 @@ export function RevenueDashboard({
   const showCash =
     summary.moneyReceived != null ||
     summary.rds != null ||
+    summary.leasingEmi != null ||
     summary.settlement?.centerCollections != null ||
     summary.settlement?.midMonthPayment != null ||
     summary.settlement?.grossPayable != null;
   const cultSubtitle = summary.usedMoneyReceived
     ? summary.partnerShare != null
-      ? `Partner Share ${inr(summary.partnerShare)} · ${TDS_LABEL} is not added to income`
+      ? `Partner Share ${inr(summary.partnerShare)} · ${TDS_LABEL}${
+          summary.leasingEmi ? " and leasing EMI" : ""
+        } not added to income`
       : `${TDS_LABEL} is not added to income`
     : summary.cultIncome > 0
       ? summary.cultIncomeLabel
@@ -95,16 +98,25 @@ export function RevenueDashboard({
       </div>
 
       {showCash ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className={`grid gap-4 ${summary.leasingEmi ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <StatCard
             title={TDS_LABEL}
             value={summary.rds == null ? "—" : inr(summary.rds)}
             subtitle={TDS_HINT}
           />
+          {summary.leasingEmi ? (
+            <StatCard
+              title="Leasing EMI"
+              value={inr(summary.leasingEmi)}
+              subtitle="Deducted by Cult — not added to income"
+            />
+          ) : null}
           <StatCard
             title="Partner Share"
             value={summary.partnerShare == null ? "—" : inr(summary.partnerShare)}
-            subtitle={`Cult statement total — includes ${TDS_LABEL}`}
+            subtitle={`Cult statement total — includes ${TDS_LABEL}${
+              summary.leasingEmi ? " and leasing EMI" : ""
+            }`}
           />
         </div>
       ) : null}
@@ -139,9 +151,20 @@ export function RevenueDashboard({
           <CardContent className="space-y-3">
             <MixRow label="Cult (received)" amount={summary.cultIncome} total={summary.grossIncome} />
             <MixRow label="Total PT" amount={summary.ptRevenue} total={summary.grossIncome} />
-            {summary.rds != null ? (
+            {summary.rds != null || summary.leasingEmi != null ? (
               <p className="text-xs text-muted-foreground">
-                {TDS_LABEL} {inr(summary.rds)} is withheld by Cult and is not added to income.
+                {(() => {
+                  const parts = [
+                    summary.rds != null
+                      ? `${TDS_LABEL} ${inr(summary.rds)} is withheld by Cult`
+                      : null,
+                    summary.leasingEmi != null
+                      ? `leasing EMI ${inr(summary.leasingEmi)} is deducted by Cult`
+                      : null,
+                  ].filter((part): part is string => Boolean(part));
+                  if (parts.length === 1) return `${parts[0]} and is not added to income.`;
+                  return `${parts.join("; ")}. Neither is added to income.`;
+                })()}
               </p>
             ) : null}
             <p className="text-xs text-muted-foreground">
@@ -333,6 +356,10 @@ export function RevenueDashboard({
             <CashItem
               label={`${TDS_LABEL} (not added to income)`}
               value={summary.rds}
+            />
+            <CashItem
+              label="Leasing EMI (not added to income)"
+              value={summary.leasingEmi}
             />
             <CashItem label="Partner Share" value={summary.partnerShare} />
             <CashItem label="Centre collections" value={summary.settlement?.centerCollections ?? null} />

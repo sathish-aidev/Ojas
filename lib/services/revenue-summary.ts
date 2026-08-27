@@ -53,6 +53,7 @@ export type RevenueMonthSummary = {
   netResult: number;
   moneyReceived: number | null;
   rds: number | null;
+  leasingEmi: number | null;
   moneyReceivedLabel: string;
   usedMoneyReceived: boolean;
   settlement: Awaited<ReturnType<typeof getCultSettlement>>;
@@ -187,6 +188,7 @@ export async function getRevenueMonthSummary(
     midMonthPayment: settlement?.midMonthPayment ?? null,
     grossPayable: settlement?.grossPayable ?? null,
     tds: settlement?.tds ?? null,
+    leasingEmi: settlement?.leasingEmi ?? null,
   };
   const cult = resolveCultPnlIncome(cashInput);
   const cash = resolveCultCashReceived(cashInput);
@@ -222,6 +224,7 @@ export async function getRevenueMonthSummary(
     netResult: pnl.netResult,
     moneyReceived: cash.moneyReceived,
     rds: cash.rds,
+    leasingEmi: cash.leasingEmi,
     moneyReceivedLabel: cash.label,
     usedMoneyReceived: cult.usedMoneyReceived,
     settlement,

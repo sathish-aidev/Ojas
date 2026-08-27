@@ -92,9 +92,12 @@ export function resolveCultIncome(input: {
 export const TDS_LABEL = "TDS";
 export const TDS_HINT = "Withheld by Cult — not added to income";
 
-export type CultCashReceivedSource = "cash_legs" | "partner_share_minus_rds" | "none";
+export type CultCashReceivedSource =
+  | "cash_legs"
+  | "partner_share_minus_rds"
+  | "none";
 
-function absAmount(value: number | null): number | null {
+function absAmount(value: number | null | undefined): number | null {
   if (value == null) return null;
   return Math.abs(value);
 }
@@ -105,13 +108,19 @@ export function resolveCultCashReceived(input: {
   grossPayable: number | null;
   partnerShare: number | null;
   tds: number | null;
+  leasingEmi?: number | null;
+  otherRecoveries?: number | null;
 }): {
   moneyReceived: number | null;
   rds: number | null;
+  leasingEmi: number | null;
   source: CultCashReceivedSource;
   label: string;
 } {
   const rds = absAmount(input.tds);
+  const leasingEmi = absAmount(input.leasingEmi) ?? 0;
+  const otherRecoveries = absAmount(input.otherRecoveries) ?? 0;
+  const extraRecoveries = leasingEmi + otherRecoveries;
   const legs = [
     absAmount(input.centerCollections),
     absAmount(input.midMonthPayment),
@@ -119,23 +128,32 @@ export function resolveCultCashReceived(input: {
   ];
   const allLegs = legs.every((value) => value != null);
   const anyLeg = legs.some((value) => value != null);
+  const legsSum = allLegs ? legs.reduce<number>((sum, value) => sum + (value ?? 0), 0) : null;
+  const fromShare =
+    input.partnerShare != null && rds != null ? input.partnerShare - rds - extraRecoveries : null;
 
-  if (allLegs) {
-    const moneyReceived = legs.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+  // Cash legs are the banked amounts (centre + mid-month + gross payable). Prefer them
+  // whenever all three lines parsed, including a blank mid-month as 0. EMI and TDS are
+  // already out of gross payable, so this matches the PDF even if a Less: line was missed.
+  if (allLegs && legsSum != null) {
     return {
-      moneyReceived,
+      moneyReceived: legsSum,
       rds,
+      leasingEmi: leasingEmi || null,
       source: "cash_legs",
-      label: "Centre + mid-month + gross payable",
+      label: extraRecoveries
+        ? "Centre + mid-month + gross payable (TDS and leasing EMI excluded)"
+        : "Centre + mid-month + gross payable",
     };
   }
 
-  if (input.partnerShare != null && rds != null) {
+  if (fromShare != null) {
     return {
-      moneyReceived: input.partnerShare - rds,
+      moneyReceived: fromShare,
       rds,
+      leasingEmi: leasingEmi || null,
       source: "partner_share_minus_rds",
-      label: "Partner Share minus TDS",
+      label: extraRecoveries ? "Partner Share minus TDS and leasing EMI" : "Partner Share minus TDS",
     };
   }
 
@@ -144,12 +162,19 @@ export function resolveCultCashReceived(input: {
     return {
       moneyReceived,
       rds,
+      leasingEmi: leasingEmi || null,
       source: "cash_legs",
       label: "Centre + mid-month + gross payable (partial)",
     };
   }
 
-  return { moneyReceived: null, rds, source: "none", label: "Not entered" };
+  return {
+    moneyReceived: null,
+    rds,
+    leasingEmi: leasingEmi || null,
+    source: "none",
+    label: "Not entered",
+  };
 }
 
 /** Gym P&L: Cult received + Total PT − expenses − paid payroll (base + trainer PT share). */
@@ -172,6 +197,8 @@ export function resolveCultPnlIncome(input: {
   midMonthPayment: number | null;
   grossPayable: number | null;
   tds: number | null;
+  leasingEmi?: number | null;
+  otherRecoveries?: number | null;
 }): {
   amount: number;
   source: CultIncomeSource;

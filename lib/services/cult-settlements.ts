@@ -21,6 +21,7 @@ export type CultSettlementInput = {
   centerCollections?: number;
   midMonthPayment?: number;
   tds?: number;
+  leasingEmi?: number;
   grossPayable?: number;
   notes?: string;
   settlementDriveUrl?: string;
@@ -45,6 +46,7 @@ export type SerializedCultSettlement = {
   centerCollections: number | null;
   midMonthPayment: number | null;
   tds: number | null;
+  leasingEmi: number | null;
   grossPayable: number | null;
   notes: string | null;
   settlementDriveUrl: string | null;
@@ -85,6 +87,7 @@ export function serializeCultSettlement(row: CultSettlement): SerializedCultSett
     centerCollections: absNum(row.centerCollections),
     midMonthPayment: absNum(row.midMonthPayment),
     tds: absNum(row.tds),
+    leasingEmi: absNum(row.leasingEmi),
     grossPayable: absNum(row.grossPayable),
     notes: row.notes,
     settlementDriveUrl: row.settlementDriveUrl,
@@ -112,6 +115,7 @@ function toPartialUpdate(input: Partial<CultSettlementInput>): Prisma.CultSettle
   if (input.centerCollections !== undefined) data.centerCollections = input.centerCollections;
   if (input.midMonthPayment !== undefined) data.midMonthPayment = input.midMonthPayment;
   if (input.tds !== undefined) data.tds = input.tds;
+  if (input.leasingEmi !== undefined) data.leasingEmi = input.leasingEmi;
   if (input.grossPayable !== undefined) data.grossPayable = input.grossPayable;
   if (input.notes !== undefined) data.notes = input.notes.trim() || null;
   if (input.settlementDriveUrl !== undefined) {
@@ -145,6 +149,7 @@ function toUpdateData(input: CultSettlementInput): Prisma.CultSettlementUpdateIn
     "centerCollections",
     "midMonthPayment",
     "tds",
+    "leasingEmi",
     "grossPayable",
   ];
   for (const key of details) {
@@ -178,6 +183,7 @@ function toCreateData(
     centerCollections: input.centerCollections ?? null,
     midMonthPayment: input.midMonthPayment ?? null,
     tds: input.tds ?? null,
+    leasingEmi: input.leasingEmi ?? null,
     grossPayable: input.grossPayable ?? null,
     notes: input.notes?.trim() || null,
     settlementDriveUrl: input.settlementDriveUrl?.trim() || null,
@@ -240,6 +246,7 @@ export async function mergeCultSettlement(
     "centerCollections",
     "midMonthPayment",
     "tds",
+    "leasingEmi",
     "grossPayable",
     "periodStart",
     "periodEnd",

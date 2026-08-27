@@ -14,18 +14,13 @@ export type ParsedCultPdf = {
   centerCollections: number | null;
   midMonthPayment: number | null;
   tds: number | null;
+  leasingEmi: number | null;
+  otherRecoveries: number | null;
   grossPayable: number | null;
   periodStart: string | null;
   periodEnd: string | null;
   textLength: number;
 };
-
-function moneyAfter(text: string, pattern: RegExp): number | null {
-  const match = text.match(pattern);
-  if (!match) return null;
-  const raw = match[1] ?? match[2] ?? match[3];
-  return parseMoney(raw);
-}
 
 function absAmount(value: number | null): number | null {
   if (value == null) return null;
@@ -66,51 +61,70 @@ function toIsoDate(raw: string): string | null {
   return null;
 }
 
+/** Last INR amount on a settlement line. A trailing hyphen with no digits is 0 (blank Less: row). */
+export function lastMoneyOnLine(line: string): number | null {
+  const cleaned = line
+    .replace(/\u00a0/g, " ")
+    .replace(/@\s*\d+(?:\.\d+)?\s*%/g, "")
+    .replace(/\d+(?:\.\d+)?\s*%/g, "")
+    .trim();
+  if (!cleaned) return null;
+  if (/[-–—]\s*$/.test(cleaned) && !/-[\d,]+\s*$/.test(cleaned)) return 0;
+  const matches = [...cleaned.matchAll(/-?[\d,]+(?:\.\d+)?/g)];
+  if (!matches.length) return null;
+  return absAmount(parseMoney(matches[matches.length - 1][0]));
+}
+
+function findLineAmount(lines: string[], test: (line: string) => boolean): number | null {
+  const line = lines.find(test);
+  if (!line) return null;
+  return lastMoneyOnLine(line);
+}
+
 export function parseCultPdfText(text: string): ParsedCultPdf {
   const compact = text.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ");
+  const lines = compact
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
   const period = compact.match(
     /From:\s*(\d{1,2}[-/][A-Za-z0-9]+[-/]\d{4})\s*To:\s*(\d{1,2}[-/][A-Za-z0-9]+[-/]\d{4})/i
   );
 
+  const knownLess =
+    /collected at(?: the)? center|mid-month payment|expected tds|leasing emi/i;
+  const otherRecoveries = lines
+    .filter((line) => /less:/i.test(line) && !knownLess.test(line))
+    .reduce((sum, line) => sum + (lastMoneyOnLine(line) ?? 0), 0);
+
   return {
-    partnerShare:
-      moneyAfter(
-        compact,
-        /Amount Payable to Gym Partner(?:\s*\(Partner Share\))?[^\d\-]*([\d,]+(?:\.\d+)?)/i
-      ) ?? moneyAfter(compact, /(?:\(|\b)Partner Share\)?[^\d\-]*([\d,]+(?:\.\d+)?)/i),
+    partnerShare: findLineAmount(lines, (line) =>
+      /amount payable to gym partner|partner share/i.test(line)
+    ),
     taxInvoiceGrossTotal:
-      moneyAfter(compact, /Gross Total[^\d\-]*([\d,]+(?:\.\d+)?)/i) ??
-      moneyAfter(compact, /Grand Total[^\d\-]*([\d,]+(?:\.\d+)?)/i),
-    saleOfNewPacks: moneyAfter(compact, /Sale of New Packs[^\d\-]*([\d,]+(?:\.\d+)?)/i),
-    walkInsOuts: moneyAfter(
-      compact,
-      /Walk In'?s?\s*&\s*Walk Out'?s?[^\d\-]*([\d,]+(?:\.\d+)?)/i
-    ),
-    otherAdjustments: moneyAfter(compact, /Other Adjustment'?s?[^\d\-]*([\d,]+(?:\.\d+)?)/i),
-    platformFees: moneyAfter(compact, /Platform Fee'?s?[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
+      findLineAmount(lines, (line) => /^gross total\b/i.test(line)) ??
+      findLineAmount(lines, (line) => /\bgross total\b/i.test(line)) ??
+      findLineAmount(lines, (line) => /\bgrand total\b/i.test(line)),
+    saleOfNewPacks: findLineAmount(lines, (line) => /sale of new packs/i.test(line)),
+    walkInsOuts: findLineAmount(lines, (line) => /walk in'?s?\s*&\s*walk out/i.test(line)),
+    otherAdjustments: findLineAmount(lines, (line) => /other adjustment/i.test(line)),
+    platformFees: findLineAmount(lines, (line) => /platform fee/i.test(line)),
     totalRevenue:
-      moneyAfter(compact, /1\s*Total Revenue[^\d\-]*([\d,]+(?:\.\d+)?)/i) ??
-      moneyAfter(compact, /Total Revenue[^\d\-]*([\d,]+(?:\.\d+)?)/i),
-    cmCharges: moneyAfter(compact, /CM Charges[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
-    maintInfraCharges: moneyAfter(
-      compact,
-      /Maint\/Infra Charges[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
+      findLineAmount(lines, (line) => /^\d+\s+total revenue\b/i.test(line)) ??
+      findLineAmount(lines, (line) => /\btotal revenue\b/i.test(line)),
+    cmCharges: findLineAmount(lines, (line) => /\bcm charges\b/i.test(line)),
+    maintInfraCharges: findLineAmount(lines, (line) => /maint\/infra charges/i.test(line)),
+    centerCollections: findLineAmount(lines, (line) =>
+      /collected at(?: the)? center/i.test(line)
     ),
-    centerCollections: absAmount(
-      moneyAfter(
-        compact,
-        /Amount Collected At(?: the)? center[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
-      )
-    ),
-    midMonthPayment: absAmount(
-      moneyAfter(compact, /Mid-Month Payment[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
-    ),
-    tds: absAmount(
-      moneyAfter(compact, /Expected TDS[^%\n]*\d+\s*%[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
-    ),
-    grossPayable: absAmount(
-      moneyAfter(compact, /Gross Payable[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
+    midMonthPayment: findLineAmount(lines, (line) => /mid-month payment/i.test(line)),
+    tds: findLineAmount(lines, (line) => /expected tds/i.test(line)),
+    leasingEmi: findLineAmount(lines, (line) => /leasing emi/i.test(line)),
+    otherRecoveries: otherRecoveries > 0 ? otherRecoveries : 0,
+    grossPayable: findLineAmount(
+      lines,
+      (line) => /^\d+\s+gross payable\b/i.test(line) || /^gross payable\b/i.test(line)
     ),
     periodStart: period ? toIsoDate(period[1]) : null,
     periodEnd: period ? toIsoDate(period[2]) : null,
