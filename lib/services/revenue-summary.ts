@@ -6,6 +6,7 @@ import {
   resolveCultCashReceived,
   resolveCultPnlIncome,
   EXPENSE_CATEGORY_LABELS,
+  type CultIncomeSource,
 } from "@/lib/revenue-constants";
 import { shiftMonth } from "@/lib/date-ymd";
 import type { ExpenseCategory } from "@prisma/client";
@@ -15,7 +16,7 @@ export type RevenueMonthSummary = {
   month: number;
   year: number;
   cultIncome: number;
-  cultIncomeSource: ReturnType<typeof resolveCultIncome>["source"];
+  cultIncomeSource: CultIncomeSource;
   cultIncomeLabel: string;
   partnerShare: number | null;
   taxInvoiceGrossTotal: number | null;
