@@ -2,7 +2,7 @@
  * Cult cash received vs RDS — run after revenue cash changes:
  *   npm run test:revenue-cash
  */
-import { parseExpenseCategory, resolveCultCashReceived } from "../lib/revenue-constants";
+import { parseExpenseCategory, resolveCultCashReceived, resolveCultPnlIncome } from "../lib/revenue-constants";
 
 let passed = 0;
 let failed = 0;
@@ -42,6 +42,18 @@ function main() {
   });
   assert(fromShare.moneyReceived === 793785, "Falls back to Partner Share minus RDS");
   assert(fromShare.source === "partner_share_minus_rds", "Fallback source is partner share minus RDS");
+
+  const pnl = resolveCultPnlIncome({
+    centerCollections: 164300,
+    midMonthPayment: 382316,
+    grossPayable: 247169,
+    partnerShare: 809198,
+    taxInvoiceGrossTotal: null,
+    tds: 15413,
+  });
+  assert(pnl.amount === 793785, "P&L Cult income is actual money received, not Partner Share");
+  assert(pnl.usedMoneyReceived, "P&L uses money received when known");
+  assert(pnl.amount !== 809198, "Partner Share is not used as P&L Cult income when RDS is known");
 
   const none = resolveCultCashReceived({
     centerCollections: null,

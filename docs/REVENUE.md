@@ -6,7 +6,8 @@ Owner modules: **Revenue** (P&L) and **Expenses**. Supervisor: **Expenses**.
 
 ```
 Cult income
-  = Partner Share if entered
+  = Actual money received when known (centre + mid-month + gross payable, or Partner Share minus RDS)
+    else Partner Share if entered
     else Tax Invoice Gross Total (interim, while settlement is delayed)
 + Owner PT share (existing PT tracker / payment splits)
 − Manual gym expenses (owner bills + cash given to supervisor)
@@ -14,9 +15,7 @@ Cult income
 = Net monthly result
 ```
 
-**RDS** (Cult TDS withheld) is shown on Monthly revenue but **not added to income**. Partner Share is already the Cult P&L number.
-
-**Actual money received** is centre collections + mid-month payment + gross payable (or Partner Share minus RDS if those cash legs are incomplete). Example Apr 2026: Partner Share ₹8,09,198, RDS ₹15,413, money received ₹7,93,785.
+**RDS** (Cult TDS withheld) is shown on Monthly revenue and in the 12-month table but **not added to income**. Example Apr 2026: Partner Share ₹8,09,198, RDS ₹15,413, Cult income / money received ₹7,93,785.
 
 Supervisor spends from cash given to the supervisor are tracked in Expenses but **not** deducted again.
 

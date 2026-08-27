@@ -26,6 +26,9 @@ type TrendPoint = {
   cultIncome: number;
   cultIncomeSource: "partner_share" | "tax_invoice" | "none";
   ownerPtShare: number;
+  rds: number | null;
+  moneyReceived: number | null;
+  usedMoneyReceived: boolean;
   manualExpenses: number;
   payrollPaid: number;
   totalCosts: number;
@@ -57,20 +60,21 @@ export function RevenueDashboard({
     summary.settlement?.centerCollections != null ||
     summary.settlement?.midMonthPayment != null ||
     summary.settlement?.grossPayable != null;
-  const cultSubtitle =
-    summary.cultIncomeSource === "partner_share"
-      ? `${summary.cultIncomeLabel} · ${RDS_LABEL} is not added to income`
-      : summary.cultIncome > 0
-        ? summary.cultIncomeLabel
-        : summary.settlement?.taxInvoiceDriveUrl
-          ? "Tax invoice linked — settlement PDF not read yet"
-          : summary.cultIncomeLabel;
+  const cultSubtitle = summary.usedMoneyReceived
+    ? summary.partnerShare != null
+      ? `Partner Share ${inr(summary.partnerShare)} · ${RDS_LABEL} is not added to income`
+      : `${RDS_LABEL} is not added to income`
+    : summary.cultIncome > 0
+      ? summary.cultIncomeLabel
+      : summary.settlement?.taxInvoiceDriveUrl
+        ? "Tax invoice linked — settlement PDF not read yet"
+        : summary.cultIncomeLabel;
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Cult income"
+          title="Cult received"
           value={inr(summary.cultIncome)}
           subtitle={cultSubtitle}
         />
@@ -79,7 +83,7 @@ export function RevenueDashboard({
         <StatCard
           title="Net result"
           value={inr(summary.netResult)}
-          subtitle="Cult + owner PT − expenses − paid payroll"
+          subtitle="Cult received + owner PT − expenses − paid payroll"
           highlight={summary.netResult >= 0}
         />
       </div>
@@ -87,14 +91,14 @@ export function RevenueDashboard({
       {showCash ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
-            title="Actual money received"
-            value={summary.moneyReceived == null ? "—" : inr(summary.moneyReceived)}
-            subtitle={summary.moneyReceivedLabel}
-          />
-          <StatCard
             title={RDS_LABEL}
             value={summary.rds == null ? "—" : inr(summary.rds)}
             subtitle={RDS_HINT}
+          />
+          <StatCard
+            title="Partner Share"
+            value={summary.partnerShare == null ? "—" : inr(summary.partnerShare)}
+            subtitle="Cult statement total — includes RDS"
           />
         </div>
       ) : null}
@@ -127,8 +131,13 @@ export function RevenueDashboard({
             <CardTitle className="text-lg">Income mix</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <MixRow label="Cult" amount={summary.cultIncome} total={summary.grossIncome} />
+            <MixRow label="Cult (received)" amount={summary.cultIncome} total={summary.grossIncome} />
             <MixRow label="Owner PT share" amount={summary.ownerPtShare} total={summary.grossIncome} />
+            {summary.rds != null ? (
+              <p className="text-xs text-muted-foreground">
+                {RDS_LABEL} {inr(summary.rds)} is withheld by Cult and is not added to income.
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Trainer PT share ({inr(summary.trainerPtShare)}) is paid via payroll, not counted as
               owner income.
@@ -199,11 +208,12 @@ export function RevenueDashboard({
             </div>
           )}
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="py-2 font-medium">Month</th>
-                  <th className="py-2 font-medium">Cult</th>
+                  <th className="py-2 font-medium">Cult received</th>
+                  <th className="py-2 font-medium">{RDS_LABEL}</th>
                   <th className="py-2 font-medium">Owner PT</th>
                   <th className="py-2 font-medium">Expenses</th>
                   <th className="py-2 font-medium">Payroll</th>
@@ -215,7 +225,12 @@ export function RevenueDashboard({
                   <tr key={row.label} className="border-b last:border-0">
                     <td className="py-2">{row.label}</td>
                     <td>
-                      {row.cultIncomeSource === "none" ? "—" : inr(row.cultIncome)}
+                      {row.cultIncomeSource === "none" && row.moneyReceived == null
+                        ? "—"
+                        : inr(row.cultIncome)}
+                    </td>
+                    <td className="text-muted-foreground">
+                      {row.rds == null ? "—" : inr(row.rds)}
                     </td>
                     <td>{inr(row.ownerPtShare)}</td>
                     <td>{inr(row.manualExpenses)}</td>
@@ -225,6 +240,10 @@ export function RevenueDashboard({
                 ))}
               </tbody>
             </table>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Cult received is actual money in. {RDS_LABEL} is withheld by Cult and is not added to
+              Net.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -287,12 +306,12 @@ export function RevenueDashboard({
             <CardTitle className="text-lg">Cult cash received</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            <CashItem label="Actual money received" value={summary.moneyReceived} />
+            <CashItem label="Cult received (in income)" value={summary.moneyReceived} />
             <CashItem
               label={`${RDS_LABEL} (not added to income)`}
               value={summary.rds}
             />
-            <CashItem label="Partner Share (Cult income)" value={summary.partnerShare} />
+            <CashItem label="Partner Share" value={summary.partnerShare} />
             <CashItem label="Centre collections" value={summary.settlement?.centerCollections ?? null} />
             <CashItem label="Mid-month payment" value={summary.settlement?.midMonthPayment ?? null} />
             <CashItem label="Gross payable" value={summary.settlement?.grossPayable ?? null} />

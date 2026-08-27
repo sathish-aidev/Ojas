@@ -143,6 +143,36 @@ export function resolveCultCashReceived(input: {
   return { moneyReceived: null, rds, source: "none", label: "Not entered" };
 }
 
+/** P&L Cult figure: actual cash received when known; RDS is never included. */
+export function resolveCultPnlIncome(input: {
+  partnerShare: number | null;
+  taxInvoiceGrossTotal: number | null;
+  centerCollections: number | null;
+  midMonthPayment: number | null;
+  grossPayable: number | null;
+  tds: number | null;
+}): {
+  amount: number;
+  source: CultIncomeSource;
+  label: string;
+  usedMoneyReceived: boolean;
+} {
+  const cult = resolveCultIncome({
+    partnerShare: input.partnerShare,
+    taxInvoiceGrossTotal: input.taxInvoiceGrossTotal,
+  });
+  const cash = resolveCultCashReceived(input);
+  if (cash.moneyReceived != null) {
+    return {
+      amount: cash.moneyReceived,
+      source: cult.source === "none" ? "partner_share" : cult.source,
+      label: "Actual money received",
+      usedMoneyReceived: true,
+    };
+  }
+  return { ...cult, usedMoneyReceived: false };
+}
+
 export function paymentModeLabel(mode: PaymentMode | null | undefined): string {
   if (!mode) return "";
   return {

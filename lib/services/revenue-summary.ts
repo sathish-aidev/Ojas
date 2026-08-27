@@ -3,8 +3,8 @@ import { decimalToNumber } from "@/lib/utils";
 import { paymentsCollectedInMonthWhere } from "@/lib/services/trainer-split";
 import { getCultSettlement } from "@/lib/services/cult-settlements";
 import {
-  resolveCultIncome,
   resolveCultCashReceived,
+  resolveCultPnlIncome,
   EXPENSE_CATEGORY_LABELS,
 } from "@/lib/revenue-constants";
 import { shiftMonth } from "@/lib/date-ymd";
@@ -50,6 +50,7 @@ export type RevenueMonthSummary = {
   moneyReceived: number | null;
   rds: number | null;
   moneyReceivedLabel: string;
+  usedMoneyReceived: boolean;
   settlement: Awaited<ReturnType<typeof getCultSettlement>>;
 };
 
@@ -173,19 +174,18 @@ export async function getRevenueMonthSummary(
     getPayrollTotals(gymId, month, year),
   ]);
 
-  const cult = settlement?.cultIncome ?? resolveCultIncome({
-    partnerShare: null,
-    taxInvoiceGrossTotal: null,
-  });
-  const grossIncome = cult.amount + pt.ownerPtShare;
-  const totalCosts = expenses.manualExpenses + payroll.payrollPaid;
-  const cash = resolveCultCashReceived({
+  const cashInput = {
+    partnerShare: settlement?.partnerShare ?? null,
+    taxInvoiceGrossTotal: settlement?.taxInvoiceGrossTotal ?? null,
     centerCollections: settlement?.centerCollections ?? null,
     midMonthPayment: settlement?.midMonthPayment ?? null,
     grossPayable: settlement?.grossPayable ?? null,
-    partnerShare: settlement?.partnerShare ?? null,
     tds: settlement?.tds ?? null,
-  });
+  };
+  const cult = resolveCultPnlIncome(cashInput);
+  const cash = resolveCultCashReceived(cashInput);
+  const grossIncome = cult.amount + pt.ownerPtShare;
+  const totalCosts = expenses.manualExpenses + payroll.payrollPaid;
 
   return {
     month,
@@ -211,6 +211,7 @@ export async function getRevenueMonthSummary(
     moneyReceived: cash.moneyReceived,
     rds: cash.rds,
     moneyReceivedLabel: cash.label,
+    usedMoneyReceived: cult.usedMoneyReceived,
     settlement,
   };
 }
@@ -234,6 +235,9 @@ export async function getRevenueTrend(
     cultIncome: summary.cultIncome,
     cultIncomeSource: summary.cultIncomeSource,
     ownerPtShare: summary.ownerPtShare,
+    rds: summary.rds,
+    moneyReceived: summary.moneyReceived,
+    usedMoneyReceived: summary.usedMoneyReceived,
     manualExpenses: summary.manualExpenses,
     payrollPaid: summary.payrollPaid,
     totalCosts: summary.totalCosts,
