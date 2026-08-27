@@ -63,6 +63,10 @@ function num(value: { toString(): string } | null): number | null {
 export function serializeCultSettlement(row: CultSettlement): SerializedCultSettlement {
   const partnerShare = num(row.partnerShare);
   const taxInvoiceGrossTotal = num(row.taxInvoiceGrossTotal);
+  const absNum = (value: { toString(): string } | null) => {
+    const parsed = num(value);
+    return parsed == null ? null : Math.abs(parsed);
+  };
   return {
     id: row.id,
     month: row.month,
@@ -78,10 +82,10 @@ export function serializeCultSettlement(row: CultSettlement): SerializedCultSett
     totalRevenue: num(row.totalRevenue),
     cmCharges: num(row.cmCharges),
     maintInfraCharges: num(row.maintInfraCharges),
-    centerCollections: num(row.centerCollections),
-    midMonthPayment: num(row.midMonthPayment),
-    tds: num(row.tds),
-    grossPayable: num(row.grossPayable),
+    centerCollections: absNum(row.centerCollections),
+    midMonthPayment: absNum(row.midMonthPayment),
+    tds: absNum(row.tds),
+    grossPayable: absNum(row.grossPayable),
     notes: row.notes,
     settlementDriveUrl: row.settlementDriveUrl,
     taxInvoiceDriveUrl: row.taxInvoiceDriveUrl,

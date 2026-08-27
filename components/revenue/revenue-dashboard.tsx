@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatCurrency } from "@/lib/utils";
-import { RDS_HINT, RDS_LABEL } from "@/lib/revenue-constants";
+import { TDS_HINT, TDS_LABEL } from "@/lib/revenue-constants";
 import type { RevenueMonthSummary } from "@/lib/services/revenue-summary";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ type TrendPoint = {
   cultIncome: number;
   cultIncomeSource: "partner_share" | "tax_invoice" | "none";
   ownerPtShare: number;
+  trainerPtShare: number;
+  ptRevenue: number;
   rds: number | null;
   moneyReceived: number | null;
   usedMoneyReceived: boolean;
@@ -62,8 +64,8 @@ export function RevenueDashboard({
     summary.settlement?.grossPayable != null;
   const cultSubtitle = summary.usedMoneyReceived
     ? summary.partnerShare != null
-      ? `Partner Share ${inr(summary.partnerShare)} · ${RDS_LABEL} is not added to income`
-      : `${RDS_LABEL} is not added to income`
+      ? `Partner Share ${inr(summary.partnerShare)} · ${TDS_LABEL} is not added to income`
+      : `${TDS_LABEL} is not added to income`
     : summary.cultIncome > 0
       ? summary.cultIncomeLabel
       : summary.settlement?.taxInvoiceDriveUrl
@@ -78,12 +80,16 @@ export function RevenueDashboard({
           value={inr(summary.cultIncome)}
           subtitle={cultSubtitle}
         />
-        <StatCard title="Owner PT share" value={inr(summary.ownerPtShare)} />
+        <StatCard
+          title="Total PT"
+          value={inr(summary.ptRevenue)}
+          subtitle={`Owner ${inr(summary.ownerPtShare)} · Trainer ${inr(summary.trainerPtShare)}`}
+        />
         <StatCard title="Gross income" value={inr(summary.grossIncome)} />
         <StatCard
           title="Net result"
           value={inr(summary.netResult)}
-          subtitle="Cult received + owner PT − expenses − paid payroll"
+          subtitle="Cult received + Total PT − expenses − paid payroll"
           highlight={summary.netResult >= 0}
         />
       </div>
@@ -91,14 +97,14 @@ export function RevenueDashboard({
       {showCash ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <StatCard
-            title={RDS_LABEL}
+            title={TDS_LABEL}
             value={summary.rds == null ? "—" : inr(summary.rds)}
-            subtitle={RDS_HINT}
+            subtitle={TDS_HINT}
           />
           <StatCard
             title="Partner Share"
             value={summary.partnerShare == null ? "—" : inr(summary.partnerShare)}
-            subtitle="Cult statement total — includes RDS"
+            subtitle={`Cult statement total — includes ${TDS_LABEL}`}
           />
         </div>
       ) : null}
@@ -118,8 +124,8 @@ export function RevenueDashboard({
           value={inr(summary.payrollPaid)}
           subtitle={
             summary.payrollPending > 0
-              ? `${inr(summary.payrollPending)} pending — not included`
-              : "Pending payroll is excluded"
+              ? `Base + PT share · ${inr(summary.payrollPending)} pending — not included`
+              : "Base salary + trainer PT share"
           }
         />
         <StatCard title="Total costs" value={inr(summary.totalCosts)} />
@@ -132,15 +138,15 @@ export function RevenueDashboard({
           </CardHeader>
           <CardContent className="space-y-3">
             <MixRow label="Cult (received)" amount={summary.cultIncome} total={summary.grossIncome} />
-            <MixRow label="Owner PT share" amount={summary.ownerPtShare} total={summary.grossIncome} />
+            <MixRow label="Total PT" amount={summary.ptRevenue} total={summary.grossIncome} />
             {summary.rds != null ? (
               <p className="text-xs text-muted-foreground">
-                {RDS_LABEL} {inr(summary.rds)} is withheld by Cult and is not added to income.
+                {TDS_LABEL} {inr(summary.rds)} is withheld by Cult and is not added to income.
               </p>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              Trainer PT share ({inr(summary.trainerPtShare)}) is paid via payroll, not counted as
-              owner income.
+              Total PT is Owner {inr(summary.ownerPtShare)} + Trainer {inr(summary.trainerPtShare)}.
+              Trainer share is also in payroll, so it does not increase Net twice.
             </p>
           </CardContent>
         </Card>
@@ -213,8 +219,8 @@ export function RevenueDashboard({
                 <tr className="border-b text-muted-foreground">
                   <th className="py-2 font-medium">Month</th>
                   <th className="py-2 font-medium">Cult received</th>
-                  <th className="py-2 font-medium">{RDS_LABEL}</th>
-                  <th className="py-2 font-medium">Owner PT</th>
+                  <th className="py-2 font-medium">{TDS_LABEL}</th>
+                  <th className="py-2 font-medium">Total PT</th>
                   <th className="py-2 font-medium">Expenses</th>
                   <th className="py-2 font-medium">Payroll</th>
                   <th className="py-2 font-medium">Net</th>
@@ -232,7 +238,7 @@ export function RevenueDashboard({
                     <td className="text-muted-foreground">
                       {row.rds == null ? "—" : inr(row.rds)}
                     </td>
-                    <td>{inr(row.ownerPtShare)}</td>
+                    <td>{inr(row.ptRevenue)}</td>
                     <td>{inr(row.manualExpenses)}</td>
                     <td>{inr(row.payrollPaid)}</td>
                     <td className="font-medium">{inr(row.netResult)}</td>
@@ -241,8 +247,8 @@ export function RevenueDashboard({
               </tbody>
             </table>
             <p className="mt-3 text-xs text-muted-foreground">
-              Cult received is actual money in. {RDS_LABEL} is withheld by Cult and is not added to
-              Net.
+              Net is Cult received + Total PT − expenses − paid payroll. {TDS_LABEL} is withheld by
+              Cult and is not added to Net. Payroll is base salary + trainer PT share.
             </p>
           </div>
         </CardContent>
@@ -251,12 +257,26 @@ export function RevenueDashboard({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Owner PT by trainer</CardTitle>
+            <CardTitle className="text-lg">PT this month</CardTitle>
             <Button asChild variant="outline" size="sm">
               <Link href={reportsPath}>PT reports</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-2 rounded-lg border p-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Total PT</p>
+                <p className="font-medium">{inr(summary.ptRevenue)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Owner</p>
+                <p className="font-medium">{inr(summary.ownerPtShare)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Trainer</p>
+                <p className="font-medium">{inr(summary.trainerPtShare)}</p>
+              </div>
+            </div>
             {summary.ptByTrainer.length === 0 ? (
               <p className="text-sm text-muted-foreground">No PT collections this month.</p>
             ) : (
@@ -265,10 +285,10 @@ export function RevenueDashboard({
                   <div>
                     <p className="font-medium">{t.trainerName}</p>
                     <p className="text-sm text-muted-foreground">
-                      Trainer {inr(t.trainerShare)} · Package {inr(t.revenue)}
+                      Owner {inr(t.ownerShare)} · Trainer {inr(t.trainerShare)}
                     </p>
                   </div>
-                  <p className="font-medium">{inr(t.ownerShare)}</p>
+                  <p className="font-medium">{inr(t.revenue)}</p>
                 </div>
               ))
             )}
@@ -290,6 +310,9 @@ export function RevenueDashboard({
                 <div key={run.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="font-medium">{run.employeeName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Base {inr(run.baseSalary)} · PT share {inr(run.commission)}
+                    </p>
                     <Badge variant={run.status === "PAID" ? "success" : "warning"}>{run.status}</Badge>
                   </div>
                   <p className="font-medium">{inr(run.netPay)}</p>
@@ -308,7 +331,7 @@ export function RevenueDashboard({
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
             <CashItem label="Cult received (in income)" value={summary.moneyReceived} />
             <CashItem
-              label={`${RDS_LABEL} (not added to income)`}
+              label={`${TDS_LABEL} (not added to income)`}
               value={summary.rds}
             />
             <CashItem label="Partner Share" value={summary.partnerShare} />

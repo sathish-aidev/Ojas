@@ -5,6 +5,7 @@ import { getCultSettlement } from "@/lib/services/cult-settlements";
 import {
   resolveCultCashReceived,
   resolveCultPnlIncome,
+  resolveGymPnl,
   EXPENSE_CATEGORY_LABELS,
   type CultIncomeSource,
 } from "@/lib/revenue-constants";
@@ -43,6 +44,8 @@ export type RevenueMonthSummary = {
     id: string;
     employeeName: string;
     netPay: number;
+    baseSalary: number;
+    commission: number;
     status: string;
   }>;
   totalCosts: number;
@@ -156,6 +159,8 @@ async function getPayrollTotals(gymId: string, month: number, year: number) {
       id: run.id,
       employeeName: run.employee.user.name,
       netPay,
+      baseSalary: decimalToNumber(run.baseSalary),
+      commission: decimalToNumber(run.commission),
       status: run.status,
     };
   });
@@ -185,8 +190,14 @@ export async function getRevenueMonthSummary(
   };
   const cult = resolveCultPnlIncome(cashInput);
   const cash = resolveCultCashReceived(cashInput);
-  const grossIncome = cult.amount + pt.ownerPtShare;
-  const totalCosts = expenses.manualExpenses + payroll.payrollPaid;
+  const pnl = resolveGymPnl({
+    cultIncome: cult.amount,
+    totalPt: pt.ptRevenue,
+    expenses: expenses.manualExpenses,
+    payrollPaid: payroll.payrollPaid,
+  });
+  const grossIncome = pnl.grossIncome;
+  const totalCosts = pnl.totalCosts;
 
   return {
     month,
@@ -208,7 +219,7 @@ export async function getRevenueMonthSummary(
     payrollRuns: payroll.payrollRuns,
     totalCosts,
     grossIncome,
-    netResult: grossIncome - totalCosts,
+    netResult: pnl.netResult,
     moneyReceived: cash.moneyReceived,
     rds: cash.rds,
     moneyReceivedLabel: cash.label,
@@ -236,6 +247,8 @@ export async function getRevenueTrend(
     cultIncome: summary.cultIncome,
     cultIncomeSource: summary.cultIncomeSource,
     ownerPtShare: summary.ownerPtShare,
+    trainerPtShare: summary.trainerPtShare,
+    ptRevenue: summary.ptRevenue,
     rds: summary.rds,
     moneyReceived: summary.moneyReceived,
     usedMoneyReceived: summary.usedMoneyReceived,

@@ -27,6 +27,11 @@ function moneyAfter(text: string, pattern: RegExp): number | null {
   return parseMoney(raw);
 }
 
+function absAmount(value: number | null): number | null {
+  if (value == null) return null;
+  return Math.abs(value);
+}
+
 function toIsoDate(raw: string): string | null {
   const named = raw.match(/^(\d{1,2})[-/]([A-Za-z]+)[-/](\d{4})$/);
   if (named) {
@@ -92,16 +97,21 @@ export function parseCultPdfText(text: string): ParsedCultPdf {
       compact,
       /Maint\/Infra Charges[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
     ),
-    centerCollections: moneyAfter(
-      compact,
-      /Amount Collected At(?: the)? center[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
+    centerCollections: absAmount(
+      moneyAfter(
+        compact,
+        /Amount Collected At(?: the)? center[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
+      )
     ),
-    midMonthPayment: moneyAfter(compact, /Mid-Month Payment[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
-    tds: moneyAfter(
-      compact,
-      /Expected TDS[^%\n]*\d+\s*%[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i
+    midMonthPayment: absAmount(
+      moneyAfter(compact, /Mid-Month Payment[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
     ),
-    grossPayable: moneyAfter(compact, /Gross Payable[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i),
+    tds: absAmount(
+      moneyAfter(compact, /Expected TDS[^%\n]*\d+\s*%[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
+    ),
+    grossPayable: absAmount(
+      moneyAfter(compact, /Gross Payable[^\d\-]*(-?[\d,]+(?:\.\d+)?)/i)
+    ),
     periodStart: period ? toIsoDate(period[1]) : null,
     periodEnd: period ? toIsoDate(period[2]) : null,
     textLength: compact.trim().length,

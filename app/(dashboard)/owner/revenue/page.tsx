@@ -55,8 +55,8 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Monthly revenue</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — actual Cult money received + owner PT share − expenses − paid
-            payroll. RDS is not added to income.
+            {getMonthName(month)} {year} — Cult received + Total PT − expenses − paid payroll. TDS
+            is not added to income.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

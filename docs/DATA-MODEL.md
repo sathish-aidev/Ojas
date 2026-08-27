@@ -109,7 +109,7 @@ See `prisma/schema.prisma` for full field definitions.
 3. **Session completion:** Increments `sessionsUsed` on active subscription if `sessionsTotal` set
 4. **Payroll commission:** Sum of `trainerShareAmount` for trainer's clients in that month
 5. **Supervisor guard:** Cannot PATCH employee split/salary or POST /api/users
-6. **Monthly P&L:** Actual Cult money received when known (else Partner Share, else Tax Invoice Gross Total) + owner PT share − owner bills − cash given to supervisor − PAID payroll netPay. RDS (Cult TDS) is shown but not added to income. Supervisor spends are tracked but not deducted again. See `docs/REVENUE.md`.
+6. **Monthly P&L:** Actual Cult money received when known (else Partner Share, else Tax Invoice Gross Total) + Total PT − owner bills − cash given to supervisor − PAID payroll netPay (base + trainer PT share). TDS withheld by Cult is shown but not added to income. Supervisor spends are tracked but not deducted again. See `docs/REVENUE.md`.
 
 ---
 

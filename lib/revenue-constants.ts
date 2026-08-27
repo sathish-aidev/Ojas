@@ -89,10 +89,15 @@ export function resolveCultIncome(input: {
   return { amount: 0, source: "none", label: CULT_INCOME_SOURCE_LABELS.none };
 }
 
-export const RDS_LABEL = "RDS";
-export const RDS_HINT = "Withheld by Cult — not added to income";
+export const TDS_LABEL = "TDS";
+export const TDS_HINT = "Withheld by Cult — not added to income";
 
 export type CultCashReceivedSource = "cash_legs" | "partner_share_minus_rds" | "none";
+
+function absAmount(value: number | null): number | null {
+  if (value == null) return null;
+  return Math.abs(value);
+}
 
 export function resolveCultCashReceived(input: {
   centerCollections: number | null;
@@ -106,8 +111,12 @@ export function resolveCultCashReceived(input: {
   source: CultCashReceivedSource;
   label: string;
 } {
-  const rds = input.tds;
-  const legs = [input.centerCollections, input.midMonthPayment, input.grossPayable];
+  const rds = absAmount(input.tds);
+  const legs = [
+    absAmount(input.centerCollections),
+    absAmount(input.midMonthPayment),
+    absAmount(input.grossPayable),
+  ];
   const allLegs = legs.every((value) => value != null);
   const anyLeg = legs.some((value) => value != null);
 
@@ -126,7 +135,7 @@ export function resolveCultCashReceived(input: {
       moneyReceived: input.partnerShare - rds,
       rds,
       source: "partner_share_minus_rds",
-      label: "Partner Share minus RDS",
+      label: "Partner Share minus TDS",
     };
   }
 
@@ -143,7 +152,19 @@ export function resolveCultCashReceived(input: {
   return { moneyReceived: null, rds, source: "none", label: "Not entered" };
 }
 
-/** P&L Cult figure: actual cash received when known; RDS is never included. */
+/** Gym P&L: Cult received + Total PT − expenses − paid payroll (base + trainer PT share). */
+export function resolveGymPnl(input: {
+  cultIncome: number;
+  totalPt: number;
+  expenses: number;
+  payrollPaid: number;
+}): { grossIncome: number; totalCosts: number; netResult: number } {
+  const grossIncome = input.cultIncome + input.totalPt;
+  const totalCosts = input.expenses + input.payrollPaid;
+  return { grossIncome, totalCosts, netResult: grossIncome - totalCosts };
+}
+
+/** P&L Cult figure: actual cash received when known; TDS is never included. */
 export function resolveCultPnlIncome(input: {
   partnerShare: number | null;
   taxInvoiceGrossTotal: number | null;
