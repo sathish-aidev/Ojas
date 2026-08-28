@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     }
 
     const result = await scanCultInvoicesFromDrive(user.gymId, user.id, {
-      parsePdfs: body.parsePdfs !== false,
+      parsePdfs: body.parsePdfs === true,
     });
     return ok(result);
   } catch (err) {

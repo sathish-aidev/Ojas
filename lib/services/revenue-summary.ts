@@ -3,13 +3,12 @@ import { decimalToNumber } from "@/lib/utils";
 import { paymentsCollectedInMonthWhere } from "@/lib/services/trainer-split";
 import { getCultSettlement } from "@/lib/services/cult-settlements";
 import {
-  resolveCultCashReceived,
   resolveCultPnlIncome,
   resolveGymPnl,
   EXPENSE_CATEGORY_LABELS,
   type CultIncomeSource,
 } from "@/lib/revenue-constants";
-import { shiftMonth } from "@/lib/date-ymd";
+import { monthsFromGymStartThrough } from "@/lib/gym-calendar";
 import type { ExpenseCategory } from "@prisma/client";
 import { PNL_EXPENSE_KINDS, sumPnlExpenses } from "@/lib/services/expense-kinds";
 
@@ -51,11 +50,7 @@ export type RevenueMonthSummary = {
   totalCosts: number;
   grossIncome: number;
   netResult: number;
-  moneyReceived: number | null;
   rds: number | null;
-  leasingEmi: number | null;
-  moneyReceivedLabel: string;
-  usedMoneyReceived: boolean;
   settlement: Awaited<ReturnType<typeof getCultSettlement>>;
 };
 
@@ -181,19 +176,13 @@ export async function getRevenueMonthSummary(
     getPayrollTotals(gymId, month, year),
   ]);
 
-  const cashInput = {
+  const cult = resolveCultPnlIncome({
     partnerShare: settlement?.partnerShare ?? null,
-    taxInvoiceGrossTotal: settlement?.taxInvoiceGrossTotal ?? null,
-    centerCollections: settlement?.centerCollections ?? null,
-    midMonthPayment: settlement?.midMonthPayment ?? null,
-    grossPayable: settlement?.grossPayable ?? null,
     tds: settlement?.tds ?? null,
-    leasingEmi: settlement?.leasingEmi ?? null,
-  };
-  const cult = resolveCultPnlIncome(cashInput);
-  const cash = resolveCultCashReceived(cashInput);
+  });
   const pnl = resolveGymPnl({
-    cultIncome: cult.amount,
+    receivedFromCult: cult.receivedFromCult ?? 0,
+    tds: cult.tds ?? 0,
     totalPt: pt.ptRevenue,
     expenses: expenses.manualExpenses,
     payrollPaid: payroll.payrollPaid,
@@ -222,11 +211,7 @@ export async function getRevenueMonthSummary(
     totalCosts,
     grossIncome,
     netResult: pnl.netResult,
-    moneyReceived: cash.moneyReceived,
-    rds: cash.rds,
-    leasingEmi: cash.leasingEmi,
-    moneyReceivedLabel: cash.label,
-    usedMoneyReceived: cult.usedMoneyReceived,
+    rds: cult.tds,
     settlement,
   };
 }
@@ -234,12 +219,9 @@ export async function getRevenueMonthSummary(
 export async function getRevenueTrend(
   gymId: string,
   month: number,
-  year: number,
-  monthsBack = 12
+  year: number
 ) {
-  const keys = Array.from({ length: monthsBack }, (_, i) =>
-    shiftMonth(month, year, -(monthsBack - 1 - i))
-  );
+  const keys = monthsFromGymStartThrough(month, year);
   const summaries = await Promise.all(
     keys.map((key) => getRevenueMonthSummary(gymId, key.month, key.year))
   );
@@ -253,8 +235,7 @@ export async function getRevenueTrend(
     trainerPtShare: summary.trainerPtShare,
     ptRevenue: summary.ptRevenue,
     rds: summary.rds,
-    moneyReceived: summary.moneyReceived,
-    usedMoneyReceived: summary.usedMoneyReceived,
+    partnerShare: summary.partnerShare,
     manualExpenses: summary.manualExpenses,
     payrollPaid: summary.payrollPaid,
     totalCosts: summary.totalCosts,

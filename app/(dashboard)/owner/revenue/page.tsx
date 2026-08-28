@@ -11,6 +11,8 @@ import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { RevenueDashboard } from "@/components/revenue/revenue-dashboard";
 import { CultSettlementForm } from "@/components/revenue/cult-settlement-form";
 import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
+import { clampToGymStart, GYM_START_YEAR } from "@/lib/gym-calendar";
+import { NET_FORMULA_LABEL } from "@/lib/revenue-constants";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -22,9 +24,10 @@ export const dynamic = "force-dynamic";
 export default async function OwnerRevenuePage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
-  const { month, year } = parseMonthYearFromSearchParams(params);
+  const selected = parseMonthYearFromSearchParams(params);
+  const { month, year } = clampToGymStart(selected.month, selected.year);
 
-  const scan = await scanCultInvoicesFromDrive(user.gymId, user.id).catch((err: unknown) => ({
+  const scan = await scanCultInvoicesFromDrive(user.gymId, user.id, { parsePdfs: false }).catch((err: unknown) => ({
     error: err instanceof Error ? err.message : "Could not read Drive invoices",
     folders: null as null,
     files: [],
@@ -55,14 +58,13 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Monthly revenue</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — Cult received + Total PT − expenses − paid payroll. TDS
-            is not added to income.
+            {getMonthName(month)} {year} — {NET_FORMULA_LABEL}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SheetSyncActions compact />
           <Suspense fallback={null}>
-            <MonthYearPicker month={month} year={year} enableShowAll={false} />
+            <MonthYearPicker month={month} year={year} enableShowAll={false} minYear={GYM_START_YEAR} />
           </Suspense>
         </div>
       </div>
@@ -85,13 +87,7 @@ export default async function OwnerRevenuePage({ searchParams }: Props) {
         scanWarnings={scan.warnings}
         scanSummary={
           !folderError && scan.linked > 0
-            ? `Loaded ${scan.linked} Drive file(s)${scan.parsed ? `, read ${scan.parsed} PDF(s)` : ""}.${
-                scan.processed?.length
-                  ? ` Processed ${scan.processed
-                      .map((p) => `${getMonthName(p.month)} ${p.year}`)
-                      .join(", ")}.`
-                  : ""
-              }`
+            ? `Linked ${scan.linked} Drive file(s). Enter Received from Cult and TDS yourself.`
             : null
         }
       />

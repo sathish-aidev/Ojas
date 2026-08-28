@@ -201,9 +201,10 @@ export function CultSettlementForm({
         ? ` Processed ${getMonthName(latest.month)} ${latest.year}.`
         : "";
       setMessage(
-        `Drive scan: ${data.linked} file(s) matched to months, ${data.parsed} PDF(s) read.` +
+        `Drive scan: ${data.linked} file(s) linked to months.` +
           processedNote +
-          (data.unmatched?.length ? ` ${data.unmatched.length} unmatched.` : "")
+          (data.unmatched?.length ? ` ${data.unmatched.length} unmatched.` : "") +
+          " Enter Received from Cult and TDS yourself — PDFs are stored only."
       );
       if (latest) {
         goToMonth(latest.month, latest.year);
@@ -247,37 +248,22 @@ export function CultSettlementForm({
         const accepted =
           kind === "settlement"
             ? window.confirm(
-                `Validated settlement PDF for ${periodLabel}:\n\n` +
-                  `Partner Share: ${
+                `Store settlement PDF for ${periodLabel} in Drive?` +
+                  driveName +
+                  `\n\nPDF read (not saved — type these yourself):\n` +
+                  `Received from Cult (Partner Share): ${
                     typeof preview.data.partnerShare === "number"
                       ? formatCurrency(preview.data.partnerShare)
                       : "not found"
                   }\n` +
                   `TDS: ${
                     typeof preview.data.tds === "number" ? formatCurrency(preview.data.tds) : "—"
-                  }\n` +
-                  `Leasing EMI: ${
-                    typeof preview.data.leasingEmi === "number"
-                      ? formatCurrency(preview.data.leasingEmi)
-                      : "—"
-                  }\n` +
-                  `Gross Payable: ${
-                    typeof preview.data.grossPayable === "number"
-                      ? formatCurrency(preview.data.grossPayable)
-                      : "—"
-                  }\n` +
-                  driveName +
-                  `\n\nSave this month and store the PDF in Drive?`
+                  }`
               )
             : window.confirm(
-                `Tax invoice for ${periodLabel}:\n\n` +
-                  `Gross Total: ${
-                    typeof preview.data.taxInvoiceGrossTotal === "number"
-                      ? formatCurrency(preview.data.taxInvoiceGrossTotal)
-                      : "not found (will still store the PDF)"
-                  }\n` +
+                `Store tax invoice for ${periodLabel} in Drive?` +
                   driveName +
-                  `\n\nSave and store this PDF in Drive?`
+                  `\n\nFigures are not filled from the PDF. Enter Received from Cult and TDS yourself.`
               );
         if (!accepted) {
           setMessage("Upload cancelled — this month was not changed");
@@ -296,19 +282,15 @@ export function CultSettlementForm({
           : "";
       const nameNote = saved.data.canonicalName ? ` Stored as ${saved.data.canonicalName}.` : "";
       if (kind === "settlement") {
-        const share =
-          typeof saved.data.partnerShare === "number"
-            ? formatCurrency(saved.data.partnerShare)
-            : "not found";
-        setMessage(`Saved Partner Share ${share}.${nameNote}${periodNote}` +
-          (saved.data.warning ? ` ${saved.data.warning}` : ""));
+        setMessage(
+          `Stored settlement PDF.${nameNote}${periodNote} Enter Received from Cult and TDS below.` +
+            (saved.data.warning ? ` ${saved.data.warning}` : "")
+        );
       } else {
-        const gross =
-          typeof saved.data.taxInvoiceGrossTotal === "number"
-            ? formatCurrency(saved.data.taxInvoiceGrossTotal)
-            : "not read";
-        setMessage(`Saved tax invoice (Gross Total ${gross}).${nameNote}${periodNote}` +
-          (saved.data.warning ? ` ${saved.data.warning}` : ""));
+        setMessage(
+          `Stored tax invoice.${nameNote}${periodNote} Enter Received from Cult and TDS below.` +
+            (saved.data.warning ? ` ${saved.data.warning}` : "")
+        );
       }
       if (saved.data.month && saved.data.year) {
         goToMonth(saved.data.month, saved.data.year);
@@ -378,9 +360,8 @@ export function CultSettlementForm({
           <div>
             <CardTitle className="text-lg">Cult / Curefit settlement</CardTitle>
             <CardDescription>
-              Upload a settlement (Mnt End) or tax invoice here — the app stores it in Drive with
-              the month in the filename and fills that month. Scan Drive re-reads settlement PDFs
-              so Cult received stays in line with the PDF (blank mid-month, TDS, leasing EMI).
+              Enter Received from Cult (Partner Share) and TDS by hand. Upload or Scan Drive only
+              stores and links PDFs — it does not fill these amounts.
             </CardDescription>
           </div>
           {source && source.source !== "none" && (
@@ -416,7 +397,7 @@ export function CultSettlementForm({
             disabled={uploading || scanning}
             onClick={() => settlementInputRef.current?.click()}
           >
-            {uploading ? "Reading PDF…" : "Upload settlement PDF"}
+            {uploading ? "Uploading…" : "Upload settlement PDF"}
           </Button>
           <Button
             type="button"
@@ -425,7 +406,7 @@ export function CultSettlementForm({
             disabled={uploading || scanning}
             onClick={() => taxInputRef.current?.click()}
           >
-            {uploading ? "Reading PDF…" : "Upload tax invoice"}
+            {uploading ? "Uploading…" : "Upload tax invoice"}
           </Button>
           <input
             ref={settlementInputRef}
@@ -493,29 +474,16 @@ export function CultSettlementForm({
             <Field
               id="partnerShare"
               name="partnerShare"
-              label="Partner Share (canonical)"
+              label="Received from Cult"
               defaultValue={settlement?.partnerShare}
-              hint="Filled from settlement PDF when text can be read"
+              hint="Amount payable to gym partner (Partner Share) — type from the PDF"
             />
             <Field
-              id="taxInvoiceGrossTotal"
-              name="taxInvoiceGrossTotal"
-              label="Tax Invoice Gross Total (interim)"
-              defaultValue={settlement?.taxInvoiceGrossTotal}
-            />
-            <Field
-              id="periodStart"
-              name="periodStart"
-              label="Period start"
-              type="date"
-              defaultValue={settlement?.periodStart}
-            />
-            <Field
-              id="periodEnd"
-              name="periodEnd"
-              label="Period end"
-              type="date"
-              defaultValue={settlement?.periodEnd}
+              id="tds"
+              name="tds"
+              label="TDS"
+              defaultValue={settlement?.tds}
+              hint="Withheld by Cult — subtracted in Net"
             />
             <Field
               id="settlementDriveUrl"
@@ -544,6 +512,9 @@ export function CultSettlementForm({
 
           {showDetails && (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field id="periodStart" name="periodStart" label="Period start" type="date" defaultValue={settlement?.periodStart} />
+              <Field id="periodEnd" name="periodEnd" label="Period end" type="date" defaultValue={settlement?.periodEnd} />
+              <Field id="taxInvoiceGrossTotal" name="taxInvoiceGrossTotal" label="Tax invoice gross total" defaultValue={settlement?.taxInvoiceGrossTotal} hint="Not used in Net" />
               <Field id="saleOfNewPacks" name="saleOfNewPacks" label="Sale of new packs" defaultValue={settlement?.saleOfNewPacks} />
               <Field id="walkInsOuts" name="walkInsOuts" label="Walk ins / walk outs" defaultValue={settlement?.walkInsOuts} />
               <Field id="otherAdjustments" name="otherAdjustments" label="Other adjustments" defaultValue={settlement?.otherAdjustments} />
@@ -553,8 +524,7 @@ export function CultSettlementForm({
               <Field id="maintInfraCharges" name="maintInfraCharges" label="Maint / infra charges" defaultValue={settlement?.maintInfraCharges} />
               <Field id="centerCollections" name="centerCollections" label="Collected at centre" defaultValue={settlement?.centerCollections} />
               <Field id="midMonthPayment" name="midMonthPayment" label="Mid-month payment" defaultValue={settlement?.midMonthPayment} />
-              <Field id="tds" name="tds" label="TDS withheld" defaultValue={settlement?.tds} hint="Not added to Cult income" />
-              <Field id="leasingEmi" name="leasingEmi" label="Leasing EMI" defaultValue={settlement?.leasingEmi} hint="Deducted by Cult — not added to income" />
+              <Field id="leasingEmi" name="leasingEmi" label="Leasing EMI" defaultValue={settlement?.leasingEmi} hint="Not used in Net" />
               <Field id="grossPayable" name="grossPayable" label="Gross payable" defaultValue={settlement?.grossPayable} />
             </div>
           )}

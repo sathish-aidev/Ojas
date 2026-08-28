@@ -31,17 +31,17 @@
 - Seed data, README, deployment notes
 
 ## Phase 5b — Monthly Revenue / P&L
-- [x] Cult Partner Share (Tax Invoice Gross Total as interim)
+- [x] Cult Partner Share entered by hand as Received from Cult (Scan Drive links PDFs only)
 - [x] Owner PT share in P&L
 - [x] Gym expenses (Owner bills + supervisor petty cash) + Expenses sheet
 - [x] PAID payroll netPay in monthly result
 - [x] Scan Cult invoice PDFs from Drive and match months
 - [x] Upload settlement + tax invoice from Revenue; store in Drive with month names; Scan Drive processes that month
-- [x] Actual money received + TDS on Monthly revenue (TDS not added to income)
-- [x] P&L Net = Cult received + Total PT − expenses − paid payroll (base + trainer PT share)
+- [x] Received from Cult and TDS on Monthly revenue (TDS subtracted in Net)
+- [x] P&L Net = Received from Cult − TDS + Total PT − expenses − paid payroll (base + trainer PT share)
 - [x] Split Google Sheets: **Expenses** for owner gym costs; **Supervisor spends** tab for petty-cash lines (not in Revenue)
 - [x] Extra expense types: TDS, GST, and CA fee
-- [x] Cult received excludes TDS and leasing EMI; blank Less: lines (e.g. mid-month) count as ₹0
+- [x] Revenue calendar and trend start January 2026 (gym start)
 - [ ] Month lock after historic catch-up
 - [ ] Choose DB-only expenses once history is complete
 - [ ] Cult PDF OCR for scanned image invoices

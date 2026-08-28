@@ -93,7 +93,7 @@ export function serializeCultSettlement(row: CultSettlement): SerializedCultSett
     settlementDriveUrl: row.settlementDriveUrl,
     taxInvoiceDriveUrl: row.taxInvoiceDriveUrl,
     enteredByUserId: row.enteredByUserId,
-    cultIncome: resolveCultIncome({ partnerShare, taxInvoiceGrossTotal }),
+    cultIncome: resolveCultIncome({ partnerShare }),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -129,14 +129,19 @@ function toPartialUpdate(input: Partial<CultSettlementInput>): Prisma.CultSettle
 
 function toUpdateData(input: CultSettlementInput): Prisma.CultSettlementUpdateInput {
   const data: Prisma.CultSettlementUpdateInput = {
-    periodStart: parseOptionalDate(input.periodStart),
-    periodEnd: parseOptionalDate(input.periodEnd),
     partnerShare: input.partnerShare ?? null,
-    taxInvoiceGrossTotal: input.taxInvoiceGrossTotal ?? null,
-    notes: input.notes?.trim() || null,
-    settlementDriveUrl: input.settlementDriveUrl?.trim() || null,
-    taxInvoiceDriveUrl: input.taxInvoiceDriveUrl?.trim() || null,
+    tds: input.tds ?? null,
   };
+  if (input.periodStart !== undefined) data.periodStart = parseOptionalDate(input.periodStart);
+  if (input.periodEnd !== undefined) data.periodEnd = parseOptionalDate(input.periodEnd);
+  if (input.taxInvoiceGrossTotal !== undefined) data.taxInvoiceGrossTotal = input.taxInvoiceGrossTotal;
+  if (input.notes !== undefined) data.notes = input.notes.trim() || null;
+  if (input.settlementDriveUrl !== undefined) {
+    data.settlementDriveUrl = input.settlementDriveUrl.trim() || null;
+  }
+  if (input.taxInvoiceDriveUrl !== undefined) {
+    data.taxInvoiceDriveUrl = input.taxInvoiceDriveUrl.trim() || null;
+  }
 
   const details: Array<keyof CultSettlementInput> = [
     "saleOfNewPacks",
@@ -148,7 +153,6 @@ function toUpdateData(input: CultSettlementInput): Prisma.CultSettlementUpdateIn
     "maintInfraCharges",
     "centerCollections",
     "midMonthPayment",
-    "tds",
     "leasingEmi",
     "grossPayable",
   ];
@@ -292,4 +296,29 @@ export async function deleteCultSettlement(gymId: string, id: string) {
   if (!existing) return null;
   await prisma.cultSettlement.delete({ where: { id } });
   return { id };
+}
+
+const CULT_MONEY_CLEAR = {
+  partnerShare: null,
+  taxInvoiceGrossTotal: null,
+  saleOfNewPacks: null,
+  walkInsOuts: null,
+  otherAdjustments: null,
+  platformFees: null,
+  totalRevenue: null,
+  cmCharges: null,
+  maintInfraCharges: null,
+  centerCollections: null,
+  midMonthPayment: null,
+  tds: null,
+  leasingEmi: null,
+  grossPayable: null,
+};
+
+/** Clear parsed/typed Cult money fields. Drive URLs, notes, and period dates stay. */
+export async function clearCultSettlementMoneyFields(gymId?: string) {
+  return prisma.cultSettlement.updateMany({
+    where: gymId ? { gymId } : {},
+    data: CULT_MONEY_CLEAR,
+  });
 }

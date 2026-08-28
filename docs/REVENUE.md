@@ -2,23 +2,22 @@
 
 Owner modules: **Revenue** (P&L) and **Expenses**. Supervisor: **Expenses**.
 
+Gym operations start **January 2026**. The Revenue month picker and trend table do not go earlier.
+
 ## Formula
 
 ```
-Cult income
-  = Actual money received when known (centre + mid-month + gross payable, or Partner Share minus TDS and leasing EMI)
-    else Partner Share if entered
-    else Tax Invoice Gross Total (interim, while settlement is delayed)
-+ Total PT (owner share + trainer share from the PT tracker)
-− Manual gym expenses (owner bills + cash given to supervisor)
-− PAID payroll netPay (base salary + trainer PT share)
-= Net monthly result
+Received from Cult  = typed Partner Share (Amount payable to gym partner)
+TDS                 = typed TDS withheld by Cult (blank = ₹0)
+Net
+  = Received from Cult − TDS + Total PT − expenses − paid payroll
 ```
 
-**TDS** (withheld by Cult) and **Leasing EMI** (when Cult deducts equipment EMI) are shown on Monthly revenue but **not added to income**. Cult received is Partner Share minus those recoveries, which matches centre collections + mid-month + gross payable.
+Leasing EMI is ignored. Tax invoice Gross Total is not used as a fallback. If Received from Cult is empty, that part is ₹0.
 
-Example Apr 2026: Partner Share ₹8,09,198, TDS ₹15,413, Cult income / money received ₹7,93,785.  
-Example Feb 2026: Partner Share ₹7,75,772, TDS ₹14,777, Leasing EMI ₹1,48,757, Cult received ₹6,12,238.
+**TDS** is shown on Monthly revenue and **subtracted in Net**. It is not added to income.
+
+Example Feb 2026 after you type the PDF lines: Received from Cult ₹7,75,772, TDS ₹14,777 → Cult after TDS ₹7,60,995.
 
 Trainer PT share is included in Total PT and again in payroll, so it does not increase Net twice.
 
@@ -47,12 +46,11 @@ Impackt Fitness (Gowlidoddi)_Apr'26_Mnt End.pdf
 Impackt Fitness (Gowlidoddi)_Apr2026_Tax Invoice.pdf
 ```
 
-**Scan Drive for invoices** reads PDFs, matches the month from the filename or the PDF period (`From: 01-April-2026`), fills that month’s Cult figures (including TDS, leasing EMI, and cash received), and opens that month. Settlement PDFs are re-parsed on every scan so corrected figures overwrite older parses. Tax invoices are re-read when a new Drive file is added.
+**Scan Drive for invoices** and uploads **store and link PDFs only**. They do **not** fill Received from Cult or TDS. Type those two amounts from the settlement PDF yourself.
 
-Scanned image PDFs with no selectable text are stored and linked; figures must be entered by hand unless the PDF has text.
+Scanned image PDFs with no selectable text are stored and linked the same way.
 
-Canonical P&L number: **actual money received** when cash legs / TDS are known (leasing EMI excluded), otherwise **Partner Share**.  
-Tax Invoice **Gross Total** is used only until Partner Share / received cash is saved.
+Canonical P&L numbers: the two typed fields **Received from Cult** and **TDS**.
 
 ## PT income
 

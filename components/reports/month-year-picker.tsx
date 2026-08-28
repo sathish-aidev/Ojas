@@ -6,7 +6,6 @@ import { getMonthName } from "@/lib/permissions";
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 8 }, (_, i) => CURRENT_YEAR - 5 + i);
 
 export function MonthYearPicker({
   month,
@@ -14,16 +13,23 @@ export function MonthYearPicker({
   showAll = false,
   paramPrefix = "",
   enableShowAll = true,
+  minYear,
 }: {
   month: number;
   year: number;
   showAll?: boolean;
   paramPrefix?: string;
   enableShowAll?: boolean;
+  minYear?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const startYear = minYear ?? CURRENT_YEAR - 5;
+  const years = Array.from(
+    { length: Math.max(1, CURRENT_YEAR + 2 - startYear + 1) },
+    (_, i) => startYear + i
+  );
 
   function pushParams(next: URLSearchParams) {
     router.push(`${pathname}?${next.toString()}`);
@@ -69,7 +75,7 @@ export function MonthYearPicker({
             className="h-10 rounded-md border bg-background px-3 text-sm"
             aria-label="Year"
           >
-            {YEARS.map((y) => (
+            {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>

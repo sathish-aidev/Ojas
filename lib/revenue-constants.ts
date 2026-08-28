@@ -60,9 +60,11 @@ export function parseExpenseCategory(input: string): ExpenseCategory | null {
   return CATEGORY_ALIASES[key] ?? null;
 }
 
+export const RECEIVED_FROM_CULT_LABEL = "Received from Cult";
+export const RECEIVED_FROM_CULT_HINT = "Amount payable to gym partner (Partner Share)";
+
 export const CULT_INCOME_SOURCE_LABELS = {
-  partner_share: "Partner Share",
-  tax_invoice: "Tax Invoice Gross Total",
+  partner_share: RECEIVED_FROM_CULT_LABEL,
   none: "Not entered",
 } as const;
 
@@ -70,7 +72,6 @@ export type CultIncomeSource = keyof typeof CULT_INCOME_SOURCE_LABELS;
 
 export function resolveCultIncome(input: {
   partnerShare: number | null;
-  taxInvoiceGrossTotal: number | null;
 }): { amount: number; source: CultIncomeSource; label: string } {
   if (input.partnerShare != null) {
     return {
@@ -79,18 +80,13 @@ export function resolveCultIncome(input: {
       label: CULT_INCOME_SOURCE_LABELS.partner_share,
     };
   }
-  if (input.taxInvoiceGrossTotal != null) {
-    return {
-      amount: input.taxInvoiceGrossTotal,
-      source: "tax_invoice",
-      label: CULT_INCOME_SOURCE_LABELS.tax_invoice,
-    };
-  }
   return { amount: 0, source: "none", label: CULT_INCOME_SOURCE_LABELS.none };
 }
 
 export const TDS_LABEL = "TDS";
-export const TDS_HINT = "Withheld by Cult — not added to income";
+export const TDS_HINT = "Withheld by Cult — subtracted in Net";
+export const NET_FORMULA_LABEL =
+  "Received from Cult − TDS + Total PT − expenses − paid payroll";
 
 export type CultCashReceivedSource =
   | "cash_legs"
@@ -177,48 +173,42 @@ export function resolveCultCashReceived(input: {
   };
 }
 
-/** Gym P&L: Cult received + Total PT − expenses − paid payroll (base + trainer PT share). */
+/** Gym P&L: Received from Cult − TDS + Total PT − expenses − paid payroll. Blanks count as 0. */
 export function resolveGymPnl(input: {
-  cultIncome: number;
+  receivedFromCult: number;
+  tds: number;
   totalPt: number;
   expenses: number;
   payrollPaid: number;
-}): { grossIncome: number; totalCosts: number; netResult: number } {
-  const grossIncome = input.cultIncome + input.totalPt;
+}): { cultAfterTds: number; grossIncome: number; totalCosts: number; netResult: number } {
+  const cultAfterTds = input.receivedFromCult - input.tds;
+  const grossIncome = cultAfterTds + input.totalPt;
   const totalCosts = input.expenses + input.payrollPaid;
-  return { grossIncome, totalCosts, netResult: grossIncome - totalCosts };
+  return { cultAfterTds, grossIncome, totalCosts, netResult: grossIncome - totalCosts };
 }
 
-/** P&L Cult figure: actual cash received when known; TDS is never included. */
+/** P&L Cult: typed Partner Share minus TDS. No tax-invoice fallback; leasing EMI is ignored. */
 export function resolveCultPnlIncome(input: {
   partnerShare: number | null;
-  taxInvoiceGrossTotal: number | null;
-  centerCollections: number | null;
-  midMonthPayment: number | null;
-  grossPayable: number | null;
   tds: number | null;
-  leasingEmi?: number | null;
-  otherRecoveries?: number | null;
 }): {
+  receivedFromCult: number | null;
+  tds: number | null;
   amount: number;
   source: CultIncomeSource;
   label: string;
-  usedMoneyReceived: boolean;
 } {
-  const cult = resolveCultIncome({
-    partnerShare: input.partnerShare,
-    taxInvoiceGrossTotal: input.taxInvoiceGrossTotal,
-  });
-  const cash = resolveCultCashReceived(input);
-  if (cash.moneyReceived != null) {
-    return {
-      amount: cash.moneyReceived,
-      source: cult.source === "none" ? "partner_share" : cult.source,
-      label: "Actual money received",
-      usedMoneyReceived: true,
-    };
-  }
-  return { ...cult, usedMoneyReceived: false };
+  const receivedFromCult = input.partnerShare;
+  const tds = input.tds == null ? null : Math.abs(input.tds);
+  const amount = (receivedFromCult ?? 0) - (tds ?? 0);
+  const cult = resolveCultIncome({ partnerShare: receivedFromCult });
+  return {
+    receivedFromCult,
+    tds,
+    amount,
+    source: cult.source,
+    label: cult.label,
+  };
 }
 
 export function paymentModeLabel(mode: PaymentMode | null | undefined): string {

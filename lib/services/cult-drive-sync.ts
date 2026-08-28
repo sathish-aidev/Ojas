@@ -19,7 +19,6 @@ import {
 import { mergeCultSettlement, type CultSettlementInput } from "@/lib/services/cult-settlements";
 import {
   validateCultSettlementParse,
-  validateCultTaxInvoiceParse,
   type ParsedCultPdf,
 } from "@/lib/cult-pdf-parse";
 import {
@@ -39,31 +38,6 @@ export type ProcessedCultMonth = {
   partnerShare: number | null;
   taxInvoiceGrossTotal: number | null;
 };
-
-function figuresFromPdf(parsed: ParsedCultPdf): Partial<CultSettlementInput> {
-  const patch: Partial<CultSettlementInput> = {};
-  const check = validateCultSettlementParse(parsed);
-  if (check.ok && parsed.partnerShare != null) patch.partnerShare = parsed.partnerShare;
-  if (parsed.taxInvoiceGrossTotal != null) patch.taxInvoiceGrossTotal = parsed.taxInvoiceGrossTotal;
-  if (parsed.saleOfNewPacks != null) patch.saleOfNewPacks = parsed.saleOfNewPacks;
-  if (parsed.walkInsOuts != null) patch.walkInsOuts = parsed.walkInsOuts;
-  if (parsed.otherAdjustments != null) patch.otherAdjustments = parsed.otherAdjustments;
-  if (parsed.platformFees != null) patch.platformFees = parsed.platformFees;
-  if (parsed.totalRevenue != null) patch.totalRevenue = parsed.totalRevenue;
-  if (parsed.cmCharges != null) patch.cmCharges = parsed.cmCharges;
-  if (parsed.maintInfraCharges != null) patch.maintInfraCharges = parsed.maintInfraCharges;
-  if (parsed.centerCollections != null) patch.centerCollections = parsed.centerCollections;
-  if (parsed.midMonthPayment != null) patch.midMonthPayment = parsed.midMonthPayment;
-  if (parsed.tds != null) patch.tds = parsed.tds;
-  if (parsed.leasingEmi != null) patch.leasingEmi = parsed.leasingEmi;
-  if (parsed.grossPayable != null) patch.grossPayable = parsed.grossPayable;
-  if (parsed.periodStart) patch.periodStart = parsed.periodStart;
-  if (parsed.periodEnd) patch.periodEnd = parsed.periodEnd;
-  if (check.ok) {
-    patch.leasingEmi = parsed.leasingEmi ?? 0;
-  }
-  return patch;
-}
 
 function monthYearFromParsed(
   file: CultDriveFile,
@@ -96,19 +70,13 @@ export function isNewCultDriveFile(
 
 function shouldParsePdf(
   file: CultDriveFile,
-  row: CultSettlement | undefined,
-  kind: "settlement" | "tax_invoice" | "unknown"
+  _row: CultSettlement | undefined,
+  _kind: "settlement" | "tax_invoice" | "unknown"
 ) {
   if (!file.mimeType.toLowerCase().includes("pdf") && !file.name.toLowerCase().endsWith(".pdf")) {
     return false;
   }
-  if (kind === "settlement") {
-    return true;
-  }
-  if (kind === "tax_invoice") {
-    return !row || row.taxInvoiceGrossTotal == null || isNewCultDriveFile(file, row, "tax_invoice");
-  }
-  return !row || row.partnerShare == null;
+  return !file.month || !file.year;
 }
 
 async function gymLabelFor(gymId: string) {
@@ -125,7 +93,7 @@ export async function scanCultInvoicesFromDrive(
   options?: { parsePdfs?: boolean }
 ) {
   const { folders, files } = await listCultInvoiceFiles();
-  const parsePdfs = options?.parsePdfs ?? true;
+  const parsePdfs = options?.parsePdfs ?? false;
   const existing = await prisma.cultSettlement.findMany({ where: { gymId } });
   const byMonth = new Map(existing.map((row) => [`${row.year}-${row.month}`, row]));
   const linked: string[] = [];
@@ -152,8 +120,7 @@ export async function scanCultInvoicesFromDrive(
         const result = await extractCultPdfFigures(file.id);
         parsedPdf = result.parsed;
         if (result.warning) warnings.push(`${file.name}: ${result.warning}`);
-        Object.assign(patch, figuresFromPdf(result.parsed));
-        if (result.parsed.partnerShare != null || result.parsed.taxInvoiceGrossTotal != null) {
+        if (result.parsed.periodStart || result.parsed.partnerShare != null) {
           parsedNames.push(file.name);
         }
       } catch (err) {
@@ -178,20 +145,9 @@ export async function scanCultInvoicesFromDrive(
     else patch.taxInvoiceDriveUrl = file.webViewLink;
 
     const row = byMonth.get(`${key.year}-${key.month}`);
-    const newFile = isNewCultDriveFile(
-      file,
-      row,
-      isSettlement ? "settlement" : "tax_invoice"
-    );
-    const settlementCheck = parsedPdf ? validateCultSettlementParse(parsedPdf) : { ok: false };
-    const overwriteFigures = Boolean(
-      parsedPdf &&
-        ((isSettlement && settlementCheck.ok) ||
-          (!isSettlement && parsedPdf.taxInvoiceGrossTotal != null && newFile))
-    );
     await mergeCultSettlement(gymId, userId, key.month, key.year, patch, {
       overwriteUrls: true,
-      overwriteFigures,
+      overwriteFigures: false,
     });
     const saved = await prisma.cultSettlement.findUnique({
       where: { gymId_month_year: { gymId, month: key.month, year: key.year } },
@@ -199,21 +155,16 @@ export async function scanCultInvoicesFromDrive(
     if (saved) byMonth.set(`${key.year}-${key.month}`, saved);
     linked.push(file.name);
 
-    if (
-      parsedPdf &&
-      (patch.partnerShare != null || patch.taxInvoiceGrossTotal != null || overwriteFigures)
-    ) {
-      processed.push({
-        month: key.month,
-        year: key.year,
-        kind: isSettlement ? "settlement" : "tax_invoice",
-        fileName: file.name,
-        partnerShare: parsedPdf.partnerShare,
-        taxInvoiceGrossTotal: parsedPdf.taxInvoiceGrossTotal,
-      });
-    }
+    processed.push({
+      month: key.month,
+      year: key.year,
+      kind: isSettlement ? "settlement" : "tax_invoice",
+      fileName: file.name,
+      partnerShare: null,
+      taxInvoiceGrossTotal: null,
+    });
 
-    if (parsedPdf && (isSettlement || kind === "tax_invoice")) {
+    if (isSettlement || kind === "tax_invoice") {
       const canonical = cultInvoiceCanonicalName(
         isSettlement ? "settlement" : "tax_invoice",
         key.month,
@@ -256,43 +207,13 @@ export async function attachCultFileToMonth(
 ) {
   const resolvedKind = kind && kind !== "unknown" ? kind : resolvedCultKind(file);
   const patch: Partial<CultSettlementInput> = {};
-
-  if (file.mimeType.toLowerCase().includes("pdf") || file.name.toLowerCase().endsWith(".pdf")) {
-    try {
-      const result = await extractCultPdfFigures(file.id);
-      const check = validateCultSettlementParse(result.parsed, month, year);
-      Object.assign(patch, figuresFromPdf(result.parsed));
-      if (resolvedKind === "tax_invoice") {
-        patch.taxInvoiceDriveUrl = file.webViewLink;
-      } else if (check.ok || resolvedKind === "settlement") {
-        patch.settlementDriveUrl = file.webViewLink;
-      } else {
-        patch.taxInvoiceDriveUrl = file.webViewLink;
-      }
-      await mergeCultSettlement(gymId, userId, month, year, patch, {
-        overwriteUrls: true,
-        overwriteFigures:
-          resolvedKind === "tax_invoice"
-            ? validateCultTaxInvoiceParse(result.parsed).ok
-            : check.ok,
-      });
-      return { warning: result.warning ?? null, month, year };
-    } catch (err) {
-      if (resolvedKind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
-      else patch.settlementDriveUrl = file.webViewLink;
-      await mergeCultSettlement(gymId, userId, month, year, patch, { overwriteUrls: true });
-      return {
-        warning: err instanceof Error ? err.message : "Could not parse PDF; file linked only",
-        month,
-        year,
-      };
-    }
-  }
-
   if (resolvedKind === "tax_invoice") patch.taxInvoiceDriveUrl = file.webViewLink;
   else patch.settlementDriveUrl = file.webViewLink;
 
-  await mergeCultSettlement(gymId, userId, month, year, patch, { overwriteUrls: true });
+  await mergeCultSettlement(gymId, userId, month, year, patch, {
+    overwriteUrls: true,
+    overwriteFigures: false,
+  });
   return { warning: null, month, year };
 }
 
@@ -330,11 +251,10 @@ export async function ingestCultInvoicePdf(
 
   if (kind === "settlement") {
     const check = validateCultSettlementParse(result.parsed);
-    if (!check.ok) {
-      throw new Error(check.errors.join(". "));
+    if (check.ok) {
+      targetMonth = check.month ?? targetMonth;
+      targetYear = check.year ?? targetYear;
     }
-    targetMonth = check.month ?? targetMonth;
-    targetYear = check.year ?? targetYear;
   }
 
   const canonical = cultInvoiceCanonicalName(kind, targetMonth, targetYear, gymLabel);
@@ -345,23 +265,19 @@ export async function ingestCultInvoicePdf(
     year: targetYear,
     partnerShare: result.parsed.partnerShare,
     taxInvoiceGrossTotal: result.parsed.taxInvoiceGrossTotal,
-    totalRevenue: result.parsed.totalRevenue,
-    grossPayable: result.parsed.grossPayable,
     tds: result.parsed.tds,
-    leasingEmi: result.parsed.leasingEmi,
     periodStart: result.parsed.periodStart,
     periodEnd: result.parsed.periodEnd,
     canonicalName: canonical,
     warning: result.warning ?? null,
+    figuresNotSaved: true as const,
   };
 
   if (!options?.confirm) {
     return preview;
   }
 
-  const patch: Partial<CultSettlementInput> = {
-    ...figuresFromPdf(result.parsed),
-  };
+  const patch: Partial<CultSettlementInput> = {};
 
   let driveUrl: string | null = null;
   let driveWarning: string | null = null;
@@ -375,13 +291,15 @@ export async function ingestCultInvoicePdf(
     else patch.taxInvoiceDriveUrl = driveUrl;
   } catch (err) {
     driveWarning =
-      err instanceof Error ? err.message : "Could not copy PDF to Drive; figures were still saved";
+      err instanceof Error ? err.message : "Could not copy PDF to Drive";
   }
 
-  await mergeCultSettlement(gymId, userId, targetMonth, targetYear, patch, {
-    overwriteUrls: Boolean(driveUrl),
-    overwriteFigures: kind === "settlement" || validateCultTaxInvoiceParse(result.parsed).ok,
-  });
+  if (driveUrl) {
+    await mergeCultSettlement(gymId, userId, targetMonth, targetYear, patch, {
+      overwriteUrls: true,
+      overwriteFigures: false,
+    });
+  }
 
   const warnings = [result.warning, driveWarning].filter(Boolean);
 
@@ -392,12 +310,10 @@ export async function ingestCultInvoicePdf(
     year: targetYear,
     partnerShare: result.parsed.partnerShare,
     taxInvoiceGrossTotal: result.parsed.taxInvoiceGrossTotal,
-    totalRevenue: result.parsed.totalRevenue,
-    grossPayable: result.parsed.grossPayable,
     tds: result.parsed.tds,
-    leasingEmi: result.parsed.leasingEmi,
     canonicalName: canonical,
     warning: warnings.length ? warnings.join(" ") : null,
+    figuresNotSaved: true as const,
   };
 }
 

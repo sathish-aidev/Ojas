@@ -275,7 +275,7 @@ export const gymExpenseUpdateSchema = gymExpenseSchema.partial();
 
 export const cultSettlementSchema = z.object({
   month: z.coerce.number().int().min(1).max(12),
-  year: z.coerce.number().int().min(2020).max(2100),
+  year: z.coerce.number().int().min(2026).max(2100),
   periodStart: z.preprocess(emptyToUndefined, z.string().optional()),
   periodEnd: z.preprocess(emptyToUndefined, z.string().optional()),
   partnerShare: optionalFiniteNumber,

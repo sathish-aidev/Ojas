@@ -1,13 +1,19 @@
 /**
- * Cult cash received vs TDS — run after revenue cash changes:
+ * Manual Cult P&L: Received from Cult − TDS + Total PT − expenses − payroll
  *   npm run test:revenue-cash
  */
 import {
   parseExpenseCategory,
-  resolveCultCashReceived,
   resolveCultPnlIncome,
   resolveGymPnl,
 } from "../lib/revenue-constants";
+import {
+  clampToGymStart,
+  GYM_START_MONTH,
+  GYM_START_YEAR,
+  isBeforeGymStart,
+  monthsFromGymStartThrough,
+} from "../lib/gym-calendar";
 
 let passed = 0;
 let failed = 0;
@@ -23,115 +29,64 @@ function assert(condition: boolean, message: string) {
 }
 
 function main() {
-  console.log("\n=== Cult cash received / TDS ===\n");
+  console.log("\n=== Received from Cult − TDS (manual P&L) ===\n");
 
-  const april = resolveCultCashReceived({
-    centerCollections: 164300,
-    midMonthPayment: 382316,
-    grossPayable: 247169,
-    partnerShare: 809198,
-    tds: 15413,
-  });
-  assert(april.moneyReceived === 793785, "Apr 2026 actual money received is ₹7,93,785");
-  assert(april.rds === 15413, "Apr 2026 TDS is ₹15,413");
-  assert(april.source === "cash_legs", "Prefers centre + mid-month + gross payable");
-  assert(april.moneyReceived !== 809198, "TDS is not added to money received");
-  assert(april.moneyReceived !== 809198 + 15413, "TDS is not added to Partner Share");
+  const april = resolveCultPnlIncome({ partnerShare: 809198, tds: 15413 });
+  assert(april.receivedFromCult === 809198, "Apr Received from Cult is Partner Share ₹8,09,198");
+  assert(april.tds === 15413, "Apr TDS is ₹15,413");
+  assert(april.amount === 809198 - 15413, "Apr Cult after TDS is Partner Share − TDS");
+  assert(april.source === "partner_share", "Source is typed Partner Share");
 
-  const fromShare = resolveCultCashReceived({
-    centerCollections: null,
-    midMonthPayment: null,
-    grossPayable: null,
-    partnerShare: 809198,
-    tds: 15413,
-  });
-  assert(fromShare.moneyReceived === 793785, "Falls back to Partner Share minus TDS");
-  assert(fromShare.source === "partner_share_minus_rds", "Fallback source is partner share minus TDS");
+  const feb = resolveCultPnlIncome({ partnerShare: 775772, tds: 14777 });
+  assert(feb.amount === 775772 - 14777, "Feb ignores leasing EMI (Partner Share − TDS only)");
+  assert(feb.amount !== 612238, "Feb is not the old cash-legs figure");
 
-  const signedLegs = resolveCultCashReceived({
-    centerCollections: -164300,
-    midMonthPayment: -382316,
-    grossPayable: 247169,
-    partnerShare: 809198,
-    tds: -15413,
-  });
-  assert(signedLegs.moneyReceived === 793785, "PDF minus signs on cash legs are treated as money in");
-  assert(signedLegs.rds === 15413, "TDS amount is shown as a positive withheld figure");
+  const empty = resolveCultPnlIncome({ partnerShare: null, tds: null });
+  assert(empty.amount === 0, "Blank Received and TDS count as 0");
+  assert(empty.source === "none", "Empty month has no Cult source");
+  assert(empty.receivedFromCult == null, "Blank Received displays as not entered");
 
-  const pnl = resolveCultPnlIncome({
-    centerCollections: 164300,
-    midMonthPayment: 382316,
-    grossPayable: 247169,
-    partnerShare: 809198,
-    taxInvoiceGrossTotal: null,
-    tds: 15413,
-  });
-  assert(pnl.amount === 793785, "P&L Cult income is actual money received, not Partner Share");
-  assert(pnl.usedMoneyReceived, "P&L uses money received when known");
-  assert(pnl.amount !== 809198, "Partner Share is not used as P&L Cult income when TDS is known");
+  const receivedOnly = resolveCultPnlIncome({ partnerShare: 775772, tds: null });
+  assert(receivedOnly.amount === 775772, "Missing TDS counts as 0");
 
-  const none = resolveCultCashReceived({
-    centerCollections: null,
-    midMonthPayment: null,
-    grossPayable: null,
-    partnerShare: 809198,
-    tds: null,
-  });
-  assert(none.moneyReceived === null, "Money received is unknown without TDS or cash legs");
-  assert(none.rds === null, "TDS empty when not entered");
-
-  const feb = resolveCultCashReceived({
-    centerCollections: 255460,
-    midMonthPayment: 284789,
-    grossPayable: 71989,
-    partnerShare: 775772,
-    tds: 14777,
-    leasingEmi: 148757,
-  });
-  assert(feb.moneyReceived === 612238, "Feb Cult received excludes TDS and leasing EMI");
-  assert(feb.leasingEmi === 148757, "Feb leasing EMI is ₹1,48,757");
-  assert(feb.moneyReceived !== 775772 - 14777, "Feb is not Partner Share minus TDS only");
-
-  const jan = resolveCultCashReceived({
-    centerCollections: 99280,
-    midMonthPayment: 0,
-    grossPayable: 413554,
-    partnerShare: 674437,
-    tds: 12846,
-    leasingEmi: 148757,
-  });
-  assert(jan.moneyReceived === 512834, "Jan blank mid-month is 0 and leasing EMI is excluded");
-
-  const janLegsOnly = resolveCultCashReceived({
-    centerCollections: 99280,
-    midMonthPayment: 0,
-    grossPayable: 413554,
-    partnerShare: 674437,
-    tds: 12846,
-  });
-  assert(
-    janLegsOnly.moneyReceived === 512834,
-    "Jan cash legs already exclude EMI even if leasing EMI is not stored"
-  );
+  const noTaxInvoice = resolveCultPnlIncome({ partnerShare: null, tds: 15413 });
+  assert(noTaxInvoice.amount === -15413, "TDS without Received still subtracts");
+  assert(noTaxInvoice.source === "none", "No tax-invoice fallback when Received is empty");
 
   const gym = resolveGymPnl({
-    cultIncome: 793785,
+    receivedFromCult: 809198,
+    tds: 15413,
     totalPt: 104075 + 96425,
     expenses: 0,
     payrollPaid: 0,
   });
-  assert(gym.grossIncome === 994285, "Gross is Cult received + Total PT");
-  assert(gym.netResult === 994285, "Net matches gross when expenses and payroll are zero");
+  assert(gym.cultAfterTds === 809198 - 15413, "Gross Cult slice is Received − TDS");
+  assert(gym.grossIncome === 809198 - 15413 + 200500, "Gross is Received − TDS + Total PT");
+  assert(gym.netResult === gym.grossIncome, "Net matches gross when expenses and payroll are zero");
+
   const gymPaid = resolveGymPnl({
-    cultIncome: 793785,
+    receivedFromCult: 809198,
+    tds: 15413,
     totalPt: 200500,
     expenses: 10000,
     payrollPaid: 96425 + 50000,
   });
   assert(
-    gymPaid.netResult === 793785 + 200500 - 10000 - 146425,
-    "Net is Cult + Total PT − expenses − payroll (base + trainer PT share)"
+    gymPaid.netResult === 809198 - 15413 + 200500 - 10000 - 146425,
+    "Net is Received from Cult − TDS + Total PT − expenses − payroll"
   );
+
+  console.log("\n=== Gym calendar (Jan 2026 start) ===\n");
+  assert(GYM_START_MONTH === 1 && GYM_START_YEAR === 2026, "Gym start is Jan 2026");
+  assert(isBeforeGymStart(12, 2025), "Dec 2025 is before gym start");
+  assert(!isBeforeGymStart(1, 2026), "Jan 2026 is gym start");
+  const clamped = clampToGymStart(8, 2025);
+  assert(clamped.month === 1 && clamped.year === 2026, "Months before start clamp to Jan 2026");
+  const throughAug = monthsFromGymStartThrough(8, 2026);
+  assert(throughAug.length === 8, "Aug 2026 trend is Jan–Aug (8 months)");
+  assert(throughAug[0].month === 1 && throughAug[0].year === 2026, "Trend starts Jan 2026");
+  assert(throughAug[7].month === 8 && throughAug[7].year === 2026, "Trend ends at selected month");
+  assert(monthsFromGymStartThrough(12, 2025).length === 1, "Pre-start selection still yields Jan 2026");
 
   console.log("\n=== Expense category aliases ===\n");
   assert(parseExpenseCategory("TDS") === "TDS", "TDS");

@@ -1,8 +1,8 @@
 /**
- * Validate local Cult Mnt End PDFs, then write figures to the local DB.
+ * Validate local Cult Mnt End PDFs (parser check only).
+ * P&L figures are entered by hand — this script does not write Partner Share or TDS.
  *
  *   npx tsx scripts/backfill-cult-settlements.ts
- *   npx tsx scripts/backfill-cult-settlements.ts --apply
  */
 import { config } from "dotenv";
 import { readdir, readFile } from "fs/promises";
@@ -14,7 +14,6 @@ import { PrismaClient } from "@prisma/client";
 import { extractText, getDocumentProxy } from "unpdf";
 import { parseCultPdfText, validateCultSettlementParse } from "../lib/cult-pdf-parse";
 import { classifyCultInvoiceName } from "../lib/cult-invoice-parse";
-import { fromYmd } from "../lib/date-ymd";
 import { decimalToNumber } from "../lib/utils";
 
 const DEFAULT_FOLDER =
@@ -44,11 +43,7 @@ async function main() {
 
   try {
     const gym = await prisma.gym.findFirst({ orderBy: { createdAt: "asc" } });
-    const owner = await prisma.user.findFirst({
-      where: { role: "OWNER" },
-      orderBy: { createdAt: "asc" },
-    });
-    if (!gym || !owner) throw new Error("Gym or owner user not found");
+    if (!gym) throw new Error("Gym not found");
 
     const existing = await prisma.cultSettlement.findMany({
       where: { gymId: gym.id },
@@ -105,58 +100,12 @@ async function main() {
       throw new Error("January 2026 Mnt End PDF failed validation; refusing to write");
     }
 
-    if (!apply) {
-      console.log("\nDry run only. Re-run with --apply to write Partner Share.");
+    if (apply) {
+      console.log("\nP&L figures are entered by hand. --apply no longer writes Partner Share or TDS.");
       return;
     }
 
-    for (const item of ready) {
-      await prisma.cultSettlement.upsert({
-        where: {
-          gymId_month_year: { gymId: gym.id, month: item.month, year: item.year },
-        },
-        create: {
-          gymId: gym.id,
-          month: item.month,
-          year: item.year,
-          periodStart: item.parsed.periodStart ? fromYmd(item.parsed.periodStart) : null,
-          periodEnd: item.parsed.periodEnd ? fromYmd(item.parsed.periodEnd) : null,
-          partnerShare: item.parsed.partnerShare,
-          saleOfNewPacks: item.parsed.saleOfNewPacks,
-          walkInsOuts: item.parsed.walkInsOuts,
-          otherAdjustments: item.parsed.otherAdjustments,
-          platformFees: item.parsed.platformFees,
-          totalRevenue: item.parsed.totalRevenue,
-          cmCharges: item.parsed.cmCharges,
-          maintInfraCharges: item.parsed.maintInfraCharges,
-          centerCollections: item.parsed.centerCollections,
-          midMonthPayment: item.parsed.midMonthPayment,
-          tds: item.parsed.tds,
-          leasingEmi: item.parsed.leasingEmi ?? 0,
-          grossPayable: item.parsed.grossPayable,
-          enteredByUserId: owner.id,
-        },
-        update: {
-          periodStart: item.parsed.periodStart ? fromYmd(item.parsed.periodStart) : undefined,
-          periodEnd: item.parsed.periodEnd ? fromYmd(item.parsed.periodEnd) : undefined,
-          partnerShare: item.parsed.partnerShare,
-          saleOfNewPacks: item.parsed.saleOfNewPacks,
-          walkInsOuts: item.parsed.walkInsOuts,
-          otherAdjustments: item.parsed.otherAdjustments,
-          platformFees: item.parsed.platformFees,
-          totalRevenue: item.parsed.totalRevenue,
-          cmCharges: item.parsed.cmCharges,
-          maintInfraCharges: item.parsed.maintInfraCharges,
-          centerCollections: item.parsed.centerCollections,
-          midMonthPayment: item.parsed.midMonthPayment,
-          tds: item.parsed.tds,
-          leasingEmi: item.parsed.leasingEmi ?? 0,
-          grossPayable: item.parsed.grossPayable,
-          enteredByUserId: owner.id,
-        },
-      });
-      console.log(`Wrote ${String(item.month).padStart(2, "0")}/${item.year} partnerShare=${item.parsed.partnerShare}`);
-    }
+    console.log("\nParser check only. P&L amounts are typed on Monthly revenue.");
   } finally {
     await prisma.$disconnect();
   }

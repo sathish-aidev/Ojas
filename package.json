@@ -16,6 +16,7 @@
     "test:pt-split": "tsx scripts/test-pt-payment-split.ts",
     "test:expense-kinds": "tsx scripts/test-expense-kinds.ts",
     "test:revenue-cash": "tsx scripts/test-revenue-cash.ts",
+    "clear:cult-figures": "tsx scripts/clear-cult-settlement-figures.ts",
     "test:cult-invoices": "tsx scripts/test-cult-invoices.ts",
     "test:cult-pdf": "tsx scripts/test-cult-pdf.ts",
     "test:import-csv": "tsx scripts/test-import-csv.ts",

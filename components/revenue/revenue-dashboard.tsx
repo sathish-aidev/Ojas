@@ -14,7 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatCurrency } from "@/lib/utils";
-import { TDS_HINT, TDS_LABEL } from "@/lib/revenue-constants";
+import {
+  NET_FORMULA_LABEL,
+  RECEIVED_FROM_CULT_LABEL,
+  TDS_HINT,
+  TDS_LABEL,
+} from "@/lib/revenue-constants";
+import { GYM_START_YEAR } from "@/lib/gym-calendar";
 import type { RevenueMonthSummary } from "@/lib/services/revenue-summary";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -24,13 +30,12 @@ type TrendPoint = {
   year: number;
   label: string;
   cultIncome: number;
-  cultIncomeSource: "partner_share" | "tax_invoice" | "none";
+  cultIncomeSource: "partner_share" | "none";
   ownerPtShare: number;
   trainerPtShare: number;
   ptRevenue: number;
   rds: number | null;
-  moneyReceived: number | null;
-  usedMoneyReceived: boolean;
+  partnerShare: number | null;
   manualExpenses: number;
   payrollPaid: number;
   totalCosts: number;
@@ -56,72 +61,40 @@ export function RevenueDashboard({
   expensesPath: string;
 }) {
   const maxExpense = Math.max(1, ...summary.expensesByCategory.map((c) => c.amount));
-  const showCash =
-    summary.moneyReceived != null ||
-    summary.rds != null ||
-    summary.leasingEmi != null ||
-    summary.settlement?.centerCollections != null ||
-    summary.settlement?.midMonthPayment != null ||
-    summary.settlement?.grossPayable != null;
-  const cultSubtitle = summary.usedMoneyReceived
-    ? summary.partnerShare != null
-      ? `Partner Share ${inr(summary.partnerShare)} · ${TDS_LABEL}${
-          summary.leasingEmi ? " and leasing EMI" : ""
-        } not added to income`
-      : `${TDS_LABEL} is not added to income`
-    : summary.cultIncome > 0
-      ? summary.cultIncomeLabel
-      : summary.settlement?.taxInvoiceDriveUrl
-        ? "Tax invoice linked — settlement PDF not read yet"
-        : summary.cultIncomeLabel;
+  const received = summary.partnerShare;
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Cult received"
-          value={inr(summary.cultIncome)}
-          subtitle={cultSubtitle}
+          title={RECEIVED_FROM_CULT_LABEL}
+          value={received == null ? "—" : inr(received)}
+          subtitle="Amount payable to gym partner (Partner Share)"
+        />
+        <StatCard
+          title={TDS_LABEL}
+          value={summary.rds == null ? "—" : inr(summary.rds)}
+          subtitle={TDS_HINT}
         />
         <StatCard
           title="Total PT"
           value={inr(summary.ptRevenue)}
           subtitle={`Owner ${inr(summary.ownerPtShare)} · Trainer ${inr(summary.trainerPtShare)}`}
         />
-        <StatCard title="Gross income" value={inr(summary.grossIncome)} />
         <StatCard
           title="Net result"
           value={inr(summary.netResult)}
-          subtitle="Cult received + Total PT − expenses − paid payroll"
+          subtitle={NET_FORMULA_LABEL}
           highlight={summary.netResult >= 0}
         />
       </div>
 
-      {showCash ? (
-        <div className={`grid gap-4 ${summary.leasingEmi ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
-          <StatCard
-            title={TDS_LABEL}
-            value={summary.rds == null ? "—" : inr(summary.rds)}
-            subtitle={TDS_HINT}
-          />
-          {summary.leasingEmi ? (
-            <StatCard
-              title="Leasing EMI"
-              value={inr(summary.leasingEmi)}
-              subtitle="Deducted by Cult — not added to income"
-            />
-          ) : null}
-          <StatCard
-            title="Partner Share"
-            value={summary.partnerShare == null ? "—" : inr(summary.partnerShare)}
-            subtitle={`Cult statement total — includes ${TDS_LABEL}${
-              summary.leasingEmi ? " and leasing EMI" : ""
-            }`}
-          />
-        </div>
-      ) : null}
-
       <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          title="Gross income"
+          value={inr(summary.grossIncome)}
+          subtitle="Received from Cult − TDS + Total PT"
+        />
         <StatCard
           title="Manual expenses"
           value={inr(summary.manualExpenses)}
@@ -140,7 +113,6 @@ export function RevenueDashboard({
               : "Base salary + trainer PT share"
           }
         />
-        <StatCard title="Total costs" value={inr(summary.totalCosts)} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -149,22 +121,11 @@ export function RevenueDashboard({
             <CardTitle className="text-lg">Income mix</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <MixRow label="Cult (received)" amount={summary.cultIncome} total={summary.grossIncome} />
+            <MixRow label="Cult (after TDS)" amount={summary.cultIncome} total={summary.grossIncome} />
             <MixRow label="Total PT" amount={summary.ptRevenue} total={summary.grossIncome} />
-            {summary.rds != null || summary.leasingEmi != null ? (
+            {summary.rds != null ? (
               <p className="text-xs text-muted-foreground">
-                {(() => {
-                  const parts = [
-                    summary.rds != null
-                      ? `${TDS_LABEL} ${inr(summary.rds)} is withheld by Cult`
-                      : null,
-                    summary.leasingEmi != null
-                      ? `leasing EMI ${inr(summary.leasingEmi)} is deducted by Cult`
-                      : null,
-                  ].filter((part): part is string => Boolean(part));
-                  if (parts.length === 1) return `${parts[0]} and is not added to income.`;
-                  return `${parts.join("; ")}. Neither is added to income.`;
-                })()}
+                {TDS_LABEL} {inr(summary.rds)} is subtracted from {RECEIVED_FROM_CULT_LABEL} in Net.
               </p>
             ) : null}
             <p className="text-xs text-muted-foreground">
@@ -213,12 +174,12 @@ export function RevenueDashboard({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">12-month trend</CardTitle>
+          <CardTitle className="text-lg">Trend since Jan {GYM_START_YEAR}</CardTitle>
         </CardHeader>
         <CardContent>
           {trend.every((p) => p.grossIncome === 0 && p.totalCosts === 0) ? (
             <p className="text-sm text-muted-foreground">
-              Enter Cult figures and expenses to see month-over-month trend.
+              Enter Received from Cult and TDS to see month-over-month trend.
             </p>
           ) : (
             <div className="h-64">
@@ -241,7 +202,7 @@ export function RevenueDashboard({
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="py-2 font-medium">Month</th>
-                  <th className="py-2 font-medium">Cult received</th>
+                  <th className="py-2 font-medium">{RECEIVED_FROM_CULT_LABEL}</th>
                   <th className="py-2 font-medium">{TDS_LABEL}</th>
                   <th className="py-2 font-medium">Total PT</th>
                   <th className="py-2 font-medium">Expenses</th>
@@ -253,11 +214,7 @@ export function RevenueDashboard({
                 {trend.map((row) => (
                   <tr key={row.label} className="border-b last:border-0">
                     <td className="py-2">{row.label}</td>
-                    <td>
-                      {row.cultIncomeSource === "none" && row.moneyReceived == null
-                        ? "—"
-                        : inr(row.cultIncome)}
-                    </td>
+                    <td>{row.partnerShare == null ? "—" : inr(row.partnerShare)}</td>
                     <td className="text-muted-foreground">
                       {row.rds == null ? "—" : inr(row.rds)}
                     </td>
@@ -270,8 +227,7 @@ export function RevenueDashboard({
               </tbody>
             </table>
             <p className="mt-3 text-xs text-muted-foreground">
-              Net is Cult received + Total PT − expenses − paid payroll. {TDS_LABEL} is withheld by
-              Cult and is not added to Net. Payroll is base salary + trainer PT share.
+              Net is {NET_FORMULA_LABEL}. Payroll is base salary + trainer PT share.
             </p>
           </div>
         </CardContent>
@@ -322,7 +278,7 @@ export function RevenueDashboard({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Payroll this month</CardTitle>
             <Button asChild variant="outline" size="sm">
-              <Link href={salariesPath}>Salaries</Link>
+              <Link href={salariesPath}>Open salaries</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -345,29 +301,6 @@ export function RevenueDashboard({
           </CardContent>
         </Card>
       </div>
-
-      {showCash && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Cult cash received</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
-            <CashItem label="Cult received (in income)" value={summary.moneyReceived} />
-            <CashItem
-              label={`${TDS_LABEL} (not added to income)`}
-              value={summary.rds}
-            />
-            <CashItem
-              label="Leasing EMI (not added to income)"
-              value={summary.leasingEmi}
-            />
-            <CashItem label="Partner Share" value={summary.partnerShare} />
-            <CashItem label="Centre collections" value={summary.settlement?.centerCollections ?? null} />
-            <CashItem label="Mid-month payment" value={summary.settlement?.midMonthPayment ?? null} />
-            <CashItem label="Gross payable" value={summary.settlement?.grossPayable ?? null} />
-          </CardContent>
-        </Card>
-      )}
 
       <div className="flex flex-wrap gap-2">
         <Button asChild className="min-h-11">
@@ -394,15 +327,6 @@ function MixRow({ label, amount, total }: { label: string; amount: number; total
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-primary/80" style={{ width: `${pct}%` }} />
       </div>
-    </div>
-  );
-}
-
-function CashItem({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className="font-medium">{value == null ? "—" : formatCurrency(value)}</p>
     </div>
   );
 }
