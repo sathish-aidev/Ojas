@@ -176,8 +176,9 @@ export function ExpensesPanel({
         return;
       }
       const extra = data.errors?.length ? ` Errors: ${data.errors.slice(0, 4).join("; ")}` : "";
+      const sheetNote = data.sheetError ? ` ${data.sheetError}` : "";
       setMessage(
-        `Sheet sync ${data.status}: ${data.created} created, ${data.updated} updated.${extra}`
+        `Sheet sync ${data.status}: ${data.created} created, ${data.updated} updated.${extra}${sheetNote}`
       );
       router.refresh();
     } catch {

@@ -8,7 +8,7 @@ import type {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decimalToNumber } from "@/lib/utils";
-import { formatDateDMY, parseFlexibleDate } from "@/lib/import/parse-csv-dates";
+import { formatDateDMY, parseSheetDate } from "@/lib/import/parse-csv-dates";
 import { mapPaymentMode } from "@/lib/import/map-payment-mode";
 import { parseMoney } from "@/lib/parse-money";
 import { parseExpenseCategory, EXPENSE_CATEGORY_LABELS, paymentModeLabel } from "@/lib/revenue-constants";
@@ -20,6 +20,7 @@ import {
   fetchAllExpenseSheetRows,
   rewriteExpenseSheet,
   upsertExpenseSheetRow,
+  writeExpenseRowIds,
   type ExpenseSheetRow,
 } from "@/lib/google/expense-sheet";
 import { EXPENSES_TAB_NAME, SUPERVISOR_SPENDS_TAB_NAME } from "@/lib/sheet-config";
@@ -526,9 +527,7 @@ function parseExpenseTabRows(
 
     if (!dateRaw && !categoryRaw && !description && !amountRaw && !id) continue;
 
-    const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw)
-      ? fromYmd(dateRaw)
-      : parseFlexibleDate(dateRaw);
+    const date = parseSheetDate(dateRaw);
     const kindRaw = cell(row, typeCol);
     const kind = kindRaw ? parseExpenseKind(kindRaw) : defaultKind;
     const category = parseExpenseCategory(categoryRaw);
@@ -632,6 +631,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
   const created: string[] = [];
   const updated: string[] = [];
   const errors: string[] = [];
+  const idWrites: Array<{ title: string; rowNumber: number; id: string }> = [];
 
   for (const tab of tabs) {
     const parsed = parseExpenseTabRows(tab.title, tab.rows, tab.defaultKind);
@@ -664,6 +664,7 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
           },
         });
         created.push(createdRow.id);
+        idWrites.push({ title: tab.title, rowNumber: item.rowNumber, id: createdRow.id });
       } catch (err) {
         errors.push(
           `${tab.title} row ${item.rowNumber}: ${err instanceof Error ? err.message : "save failed"}`
@@ -680,7 +681,17 @@ export async function syncExpensesFromSheet(gymId: string, triggeredBy: string) 
     });
     await rewriteExpenseSheet(all.map(toSheetPayload));
   } catch (err) {
-    sheetError = err instanceof Error ? err.message : "Failed to rewrite expense sheets";
+    try {
+      await writeExpenseRowIds(idWrites);
+      sheetError =
+        idWrites.length > 0
+          ? "Imported. The sheet is a Table so it was not fully rewritten; new Ids were added in column A. Dates stay DD/MM/YYYY."
+          : null;
+    } catch (idErr) {
+      const rewriteMsg = err instanceof Error ? err.message : "Failed to rewrite expense sheets";
+      const idMsg = idErr instanceof Error ? idErr.message : "Failed to write Ids";
+      sheetError = `${rewriteMsg}. Id writeback also failed: ${idMsg}`;
+    }
   }
 
   const status =

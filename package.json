@@ -15,6 +15,7 @@
     "db:studio": "prisma studio",
     "test:pt-split": "tsx scripts/test-pt-payment-split.ts",
     "test:expense-kinds": "tsx scripts/test-expense-kinds.ts",
+    "test:expense-sheet": "tsx scripts/test-expense-sheet.ts",
     "test:revenue-cash": "tsx scripts/test-revenue-cash.ts",
     "clear:cult-figures": "tsx scripts/clear-cult-settlement-figures.ts",
     "test:cult-invoices": "tsx scripts/test-cult-invoices.ts",

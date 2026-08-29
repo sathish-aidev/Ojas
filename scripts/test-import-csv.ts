@@ -2,7 +2,7 @@
  * Unit tests for CSV import parsing helpers.
  * Run: npm run test:import-csv
  */
-import { parseFlexibleDate, formatDateDMY } from "../lib/import/parse-csv-dates";
+import { parseFlexibleDate, formatDateDMY, parseSheetDate, googleSerialToDate } from "../lib/import/parse-csv-dates";
 import { parseFeePaidOn } from "../lib/import/parse-fee-paid";
 import { mapPaymentMode } from "../lib/import/map-payment-mode";
 import { parseGymCsv } from "../lib/import/parse-gym-csv";
@@ -26,7 +26,20 @@ console.log("1. parseFlexibleDate");
 assert(parseFlexibleDate("9/2/2026")!.getDate() === 9, "9/2/2026 → day 9");
 assert(parseFlexibleDate("27/1/2026")!.getMonth() === 0, "27/1/2026 → January");
 assert(parseFlexibleDate("03/01/2026")!.getFullYear() === 2026, "03/01/2026 → year 2026");
+assert(parseFlexibleDate("04/01/2026")!.getDate() === 4 && parseFlexibleDate("04/01/2026")!.getMonth() === 0, "04/01/2026 → 4 January (DD/MM/YYYY)");
+assert(parseFlexibleDate("01/04/2026")!.getDate() === 1 && parseFlexibleDate("01/04/2026")!.getMonth() === 3, "01/04/2026 → 1 April (DD/MM/YYYY)");
 assert(parseFlexibleDate("invalid") === null, "Invalid date returns null");
+
+console.log("\n1b. parseSheetDate (Sheets serial + ISO + DD/MM/YYYY)");
+const jan4 = parseSheetDate("04/01/2026")!;
+assert(jan4.getDate() === 4 && jan4.getMonth() === 0 && jan4.getFullYear() === 2026, "Text 04/01/2026 → 4 January 2026");
+assert(parseSheetDate("2026-01-04")!.getDate() === 4, "ISO 2026-01-04 → day 4");
+const serialJan4 = Date.UTC(2026, 0, 4) / 86400000 + 25569;
+assert(googleSerialToDate(serialJan4)!.getDate() === 4, "Serial for 4 Jan 2026 → day 4");
+assert(googleSerialToDate(serialJan4)!.getMonth() === 0, "Serial for 4 Jan 2026 → January");
+assert(parseSheetDate(serialJan4)!.getDate() === 4, "Numeric serial → 4 January");
+assert(parseSheetDate(String(Math.floor(serialJan4)))!.getMonth() === 0, "Serial string → January");
+assert(parseSheetDate(1500) === null, "Small numbers are not treated as dates");
 
 console.log("\n2. parseFeePaidOn");
 const start = parseFlexibleDate("03/01/2026")!;
@@ -46,6 +59,7 @@ assert(mapPaymentMode("December month share only paid").mode === "OTHER", "Unkno
 
 console.log("\n4. formatDateDMY");
 assert(formatDateDMY(new Date(2026, 0, 3, 12)) === "03/01/2026", "Formats DD/MM/YYYY");
+assert(formatDateDMY(new Date(2026, 0, 4, 12)) === "04/01/2026", "4 January is 04/01/2026 not 01/04/2026");
 
 console.log("\n5. parseGymCsv (minimal fixture)");
 const fixture = `Trainer,Customer,Start Date,End Date,Fee paid on ,Amount,Months,Mode of Payment
