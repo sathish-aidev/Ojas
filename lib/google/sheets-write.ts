@@ -22,6 +22,18 @@ export async function flattenTrainerTabTables(tabName: string): Promise<number> 
   const tables = ((sheet as { tables?: SheetTable[] }).tables ?? []).filter(
     (t): t is { tableId: string } => !!t.tableId
   );
+
+  const escaped = tabName.replace(/'/g, "''");
+  let saved: unknown[][] = [];
+  if (tables.length > 0) {
+    const valuesRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${escaped}'!A:Z`,
+      valueRenderOption: "FORMATTED_VALUE",
+    });
+    saved = (valuesRes.data.values as unknown[][]) ?? [];
+  }
+
   const requests: object[] = tables.map((t) => ({ deleteTable: { tableId: t.tableId } }));
   requests.push({
     updateSheetProperties: {
@@ -34,6 +46,16 @@ export async function flattenTrainerTabTables(tabName: string): Promise<number> 
     spreadsheetId,
     requestBody: { requests },
   });
+
+  // deleteTable also wipes cell values. Put the rows back as a normal range.
+  if (saved.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${escaped}'!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values: saved },
+    });
+  }
   return tables.length;
 }
 
