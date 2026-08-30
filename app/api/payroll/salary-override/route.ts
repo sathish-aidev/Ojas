@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getApiUser, unauthorized, forbidden, ok, badRequest } from "@/lib/api-utils";
 import { canRecordPayroll } from "@/lib/permissions";
-import { setMonthlySalaryOverride } from "@/lib/services/salaries";
+import { setMonthlyNetPay } from "@/lib/services/salaries";
 
 export async function POST(request: Request) {
   const user = await getApiUser();
@@ -9,26 +9,27 @@ export async function POST(request: Request) {
   if (!canRecordPayroll(user.role)) return forbidden();
 
   const body = await request.json();
-  const { employeeId, month, year, baseSalary } = body;
+  const { employeeId, month, year, netPay, baseSalary } = body;
+  const paid = netPay ?? baseSalary;
 
-  if (!employeeId || !month || !year || baseSalary == null) {
-    return badRequest("employeeId, month, year, baseSalary required");
+  if (!employeeId || !month || !year || paid == null) {
+    return badRequest("employeeId, month, year, and netPay are required");
   }
 
   const employee = await prisma.employee.findFirst({
     where: { id: employeeId, gymId: user.gymId },
   });
   if (!employee) return badRequest("Employee not found");
-  if (employee.employeeType === "TRAINER") {
-    return badRequest("Use trainer profile to edit trainer base salary");
+
+  try {
+    const payroll = await setMonthlyNetPay(
+      employeeId,
+      Number(month),
+      Number(year),
+      Number(paid)
+    );
+    return ok(payroll);
+  } catch (err) {
+    return badRequest(err instanceof Error ? err.message : "Could not save paid amount");
   }
-
-  const override = await setMonthlySalaryOverride(
-    employeeId,
-    Number(month),
-    Number(year),
-    Number(baseSalary)
-  );
-
-  return ok(override);
 }

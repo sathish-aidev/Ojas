@@ -1,6 +1,8 @@
 import { google } from "googleapis";
 import { getGoogleAuth, ALL_GOOGLE_SCOPES } from "./google-auth";
 import { getSpreadsheetId } from "@/lib/sheet-config";
+import { padValuesToA1 } from "./sheet-grid";
+import { formatTrainerSheetDateCells } from "@/lib/import/parse-gym-sheet";
 
 export async function getSheetsClient() {
   const auth = getGoogleAuth(ALL_GOOGLE_SCOPES);
@@ -18,7 +20,8 @@ export async function fetchSheetTab(tabName: string): Promise<string[][]> {
     valueRenderOption: "FORMATTED_VALUE",
   });
 
-  return (res.data.values as string[][]) ?? [];
+  const padded = padValuesToA1((res.data.values as unknown[][]) ?? [], res.data.range);
+  return formatTrainerSheetDateCells(padded);
 }
 
 export async function listSpreadsheetTabs(): Promise<string[]> {

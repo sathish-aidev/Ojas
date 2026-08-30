@@ -48,7 +48,24 @@ export function parseSheetDate(input: unknown): Date | null {
     if (serial) return serial;
   }
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return fromYmd(raw);
-  return parseFlexibleDate(raw);
+  const dmy = parseFlexibleDate(raw);
+  if (dmy) return dmy;
+  return parseUsMonthDayYear(raw);
+}
+
+/** Only when the second number cannot be a month (13–31), e.g. Sheets US text 1/29/2026. */
+export function parseUsMonthDayYear(input: string): Date | null {
+  const match = input.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (!match) return null;
+  const month = parseInt(match[1], 10);
+  const day = parseInt(match[2], 10);
+  const year = parseInt(match[3], 10);
+  if (month < 1 || month > 12 || day < 13 || day > 31) return null;
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return date;
 }
 
 export function formatDateDMY(date: Date): string {

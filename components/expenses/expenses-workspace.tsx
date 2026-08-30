@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Line,
   LineChart,
@@ -15,6 +16,8 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { formatCurrency, PAYMENT_MODE_LABELS } from "@/lib/utils";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/revenue-constants";
 import type { ExpenseDashboard, SerializedExpense } from "@/lib/services/expenses";
+import { getMonthName } from "@/lib/permissions";
+import { monthsFromGymStartThrough } from "@/lib/gym-calendar";
 import { ExpensesPanel } from "@/components/revenue/expenses-panel";
 import type { ExpenseCategory, ExpenseKind, PaymentMode, UserRole } from "@prisma/client";
 
@@ -32,6 +35,8 @@ function matchesLedger(row: SerializedExpense, ledger: LedgerView) {
 
 export function ExpensesWorkspace({
   monthLabel,
+  month,
+  year,
   dashboard,
   monthExpenses,
   yearExpenses,
@@ -41,6 +46,8 @@ export function ExpensesWorkspace({
   role,
 }: {
   monthLabel: string;
+  month: number;
+  year: number;
   dashboard: ExpenseDashboard;
   monthExpenses: SerializedExpense[];
   yearExpenses: SerializedExpense[];
@@ -50,11 +57,20 @@ export function ExpensesWorkspace({
   role: UserRole;
 }) {
   const isOwner = role === "OWNER";
+  const router = useRouter();
+  const pathname = usePathname();
   const [range, setRange] = useState<"month" | "year">("month");
   const [ledger, setLedger] = useState<LedgerView>(isOwner ? "pnl" : "all");
   const [category, setCategory] = useState<"all" | ExpenseCategory>("all");
   const [mode, setMode] = useState<"all" | PaymentMode | "UNSET">("all");
   const [kind, setKind] = useState<"all" | ExpenseKind>("all");
+
+  const viewMonths = monthsFromGymStartThrough(12, year).filter((item) => item.year === year);
+
+  function selectMonth(nextMonth: number) {
+    setRange("month");
+    router.push(`${pathname}?month=${nextMonth}&year=${year}`);
+  }
 
   const source = range === "month" ? monthExpenses : yearExpenses;
   const filtered = useMemo(() => {
@@ -203,10 +219,22 @@ export function ExpensesWorkspace({
           <span className="text-muted-foreground">View</span>
           <select
             className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={range}
-            onChange={(e) => setRange(e.target.value as "month" | "year")}
+            value={range === "year" ? "year" : `m:${month}`}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "year") {
+                setRange("year");
+                return;
+              }
+              const nextMonth = Number(value.replace("m:", ""));
+              if (Number.isFinite(nextMonth)) selectMonth(nextMonth);
+            }}
           >
-            <option value="month">This month</option>
+            {viewMonths.map((item) => (
+              <option key={item.month} value={`m:${item.month}`}>
+                {getMonthName(item.month)} {item.year}
+              </option>
+            ))}
             <option value="year">This year</option>
           </select>
         </label>

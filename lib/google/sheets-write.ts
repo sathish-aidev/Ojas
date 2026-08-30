@@ -20,7 +20,7 @@ export async function writeSheetTab(
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range,
-    valueInputOption: "USER_ENTERED",
+    valueInputOption: "RAW",
     requestBody: { values: rows },
   });
 }

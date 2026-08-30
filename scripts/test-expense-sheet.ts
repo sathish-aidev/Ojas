@@ -4,6 +4,7 @@
  */
 import { parseA1RangeStart, padValuesToA1 } from "../lib/google/sheet-grid";
 import { formatDateDMY, parseSheetDate } from "../lib/import/parse-csv-dates";
+import { formatTrainerSheetDateCells } from "../lib/import/parse-gym-sheet";
 
 let passed = 0;
 let failed = 0;
@@ -44,6 +45,14 @@ console.log("\n3. DD/MM/YYYY round-trip");
 const parsed = parseSheetDate(padded[3][1])!;
 assert(parsed.getDate() === 4 && parsed.getMonth() === 0, "04/01/2026 is 4 January");
 assert(formatDateDMY(parsed) === "04/01/2026", "Write-back stays DD/MM/YYYY");
+
+console.log("\n4. Trainer tab serial dates → DD/MM/YYYY");
+const serialJan29 = Date.UTC(2026, 0, 29) / 86400000 + 25569;
+const trainerRows = formatTrainerSheetDateCells([
+  ["Customer", "Start Date", "End Date", "Fee paid on", "Amount"],
+  ["yeswanth", String(Math.floor(serialJan29)), "29/04/2026", "30/01/2026", "25000"],
+]);
+assert(trainerRows[1][1] === "29/01/2026", "Serial start date becomes 29/01/2026");
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

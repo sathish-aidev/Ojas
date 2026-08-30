@@ -1,7 +1,8 @@
-import { parseFlexibleDate } from "./parse-csv-dates";
+import { parseSheetDate } from "./parse-csv-dates";
 import { parseFeePaidOn } from "./parse-fee-paid";
 import { mapPaymentMode } from "./map-payment-mode";
 import { inferMonthsCount } from "@/lib/services/payment-allocation";
+import { toYmd } from "@/lib/date-ymd";
 
 export type ParsedGymRow = {
   rowNumber: number;
@@ -174,8 +175,8 @@ export function parseGymCsv(content: string): ParseGymCsvResult {
     const feePaidRaw = colFeePaid >= 0 ? (cells[colFeePaid] ?? "").trim() : "";
     const modeRaw = colMode >= 0 ? (cells[colMode] ?? "").trim() : "";
 
-    const startDate = parseFlexibleDate(startRaw);
-    const endDate = parseFlexibleDate(endRaw);
+    const startDate = parseSheetDate(startRaw);
+    const endDate = parseSheetDate(endRaw);
     const amount = parseAmount(amountRaw);
     const monthsCount = parseMonths(monthsRaw);
 
@@ -229,4 +230,28 @@ export function parseGymCsv(content: string): ParseGymCsvResult {
   }
 
   return { rows, errors, headerRowIndex };
+}
+
+/** Same customer + start day + package amount — extra sheet rows of the same pack. */
+export function gymRowIdentity(row: {
+  customer: string;
+  startDate: Date;
+  amount: number;
+}): string {
+  return `${row.customer.trim().toLowerCase()}|${toYmd(row.startDate)}|${row.amount}`;
+}
+
+export function dedupeParsedGymRows(rows: ParsedGymRow[]): {
+  rows: ParsedGymRow[];
+  dropped: ParsedGymRow[];
+} {
+  const seen = new Map<string, ParsedGymRow>();
+  const dropped: ParsedGymRow[] = [];
+  for (const row of rows) {
+    const key = gymRowIdentity(row);
+    const prev = seen.get(key);
+    if (prev) dropped.push(prev);
+    seen.set(key, row);
+  }
+  return { rows: [...seen.values()], dropped };
 }

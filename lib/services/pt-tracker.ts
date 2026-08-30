@@ -438,6 +438,42 @@ export async function upsertSubscriptionWithPayment(data: {
   return "updated";
 }
 
+/** Move installment service dates onto real calendar months (no 29 Jan → 1 Mar overflow). */
+export async function realignTrainerInstallmentDates(trainerId: string): Promise<number> {
+  const subscriptions = await prisma.pTSubscription.findMany({
+    where: { client: { trainerId } },
+    include: { payments: true },
+  });
+  let updated = 0;
+  for (const sub of subscriptions) {
+    const monthsCount =
+      sub.monthsCount && sub.monthsCount > 0
+        ? sub.monthsCount
+        : inferMonthsCount(sub.startDate, sub.endDate);
+    const installments = allocateMonthlyInstallments(
+      decimalToNumber(sub.amount),
+      sub.startDate,
+      monthsCount
+    );
+    for (const payment of sub.payments) {
+      const inst = installments.find(
+        (row) => row.installmentIndex === (payment.installmentIndex ?? 0)
+      );
+      if (!inst) continue;
+      const paidSame = payment.paidAt.getTime() === inst.serviceDate.getTime();
+      const payableSame =
+        payment.payableAt != null && payment.payableAt.getTime() === inst.payableDate.getTime();
+      if (paidSame && payableSame) continue;
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { paidAt: inst.serviceDate, payableAt: inst.payableDate },
+      });
+      updated++;
+    }
+  }
+  return updated;
+}
+
 export async function syncSubscriptionStatuses(gymId: string) {
   const now = new Date();
   const reminderDays = (

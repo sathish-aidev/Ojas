@@ -2,9 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { fetchSheetTab } from "@/lib/google/sheets-client";
 import { parseGymSheetRows } from "@/lib/import/parse-gym-sheet";
 import type { ParsedGymRow } from "@/lib/import/parse-gym-csv";
+import { dedupeParsedGymRows } from "@/lib/import/parse-gym-csv";
 import { allocateMonthlyInstallments } from "@/lib/services/payment-allocation";
 import { upsertSubscriptionWithPayment } from "@/lib/services/pt-tracker";
 import { recalculateTrainerMonthSplits } from "@/lib/services/trainer-split";
+import { exportGymToGoogleSheet } from "@/lib/services/sheet-export";
 import { TRAINER_SHEET_TABS } from "@/lib/sheet-config";
 import { startOfTodayInTimeZone } from "@/lib/date-ymd";
 
@@ -80,6 +82,12 @@ export async function syncTrainerTab(
 
   const rows = rawRows ?? (await fetchSheetTab(tabName));
   const parsed = parseGymSheetRows(rows);
+  const { rows: uniqueRows, dropped } = dedupeParsedGymRows(parsed.rows);
+  for (const dup of dropped) {
+    result.warnings.push(
+      `Skipped duplicate sheet row ${dup.rowNumber} [${dup.customer}] (same start date and amount)`
+    );
+  }
 
   if (parsed.errors.length > 0) {
     for (const e of parsed.errors) {
@@ -87,11 +95,11 @@ export async function syncTrainerTab(
     }
   }
 
-  if (parsed.rows.length === 0) {
+  if (uniqueRows.length === 0) {
     return result;
   }
 
-  const sortedRows = [...parsed.rows].sort(
+  const sortedRows = [...uniqueRows].sort(
     (a, b) => a.startDate.getTime() - b.startDate.getTime()
   );
   result.rowsParsed = sortedRows.length;
@@ -146,6 +154,7 @@ export async function syncAllTrainerTabs(
     month?: number;
     year?: number;
     tabs?: string[];
+    skipExport?: boolean;
   }
 ): Promise<{ syncRunId: string; summary: SheetSyncSummary }> {
   const tabs = options?.tabs ?? [...TRAINER_SHEET_TABS];
@@ -224,6 +233,16 @@ export async function syncAllTrainerTabs(
   });
 
   await pruneOldSnapshots(gymId, 12);
+
+  if (summary.status === "SUCCESS" && !options?.skipExport) {
+    try {
+      await exportGymToGoogleSheet(gymId);
+    } catch (err) {
+      console.warn(
+        `Could not rewrite trainer tabs as DD/MM/YYYY: ${err instanceof Error ? err.message : err}`
+      );
+    }
+  }
 
   return { syncRunId: syncRun.id, summary };
 }

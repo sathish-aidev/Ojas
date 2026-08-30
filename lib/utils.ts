@@ -58,9 +58,23 @@ export function decimalToNumber(value: { toString(): string } | number | null | 
 }
 
 export function addMonthsToDate(dateStr: string, months: number): string {
-  const d = new Date(dateStr + "T12:00:00");
-  d.setMonth(d.getMonth() + months);
-  return d.toISOString().split("T")[0];
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const start = new Date(y, (m ?? 1) - 1, d ?? 1, 12, 0, 0, 0);
+  const monthIndex = start.getMonth() + months;
+  const lastDay = new Date(start.getFullYear(), monthIndex + 1, 0).getDate();
+  const next = new Date(
+    start.getFullYear(),
+    monthIndex,
+    Math.min(start.getDate(), lastDay),
+    12,
+    0,
+    0,
+    0
+  );
+  const yy = next.getFullYear();
+  const mm = String(next.getMonth() + 1).padStart(2, "0");
+  const dd = String(next.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 export const PAYMENT_MODE_LABELS: Record<string, string> = {

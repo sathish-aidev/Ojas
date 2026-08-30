@@ -39,6 +39,15 @@ async function main() {
   assert(installments[0].serviceDate.getMonth() === 4, "Month 1 service = May");
   assert(installments[1].serviceDate.getMonth() === 5, "Month 2 service = June");
 
+  console.log("\n1b. Late-month start does not skip February (29 Jan 2026 × 3 months)");
+  const jan29 = new Date(2026, 0, 29, 12, 0, 0, 0);
+  const yeswanth = allocateMonthlyInstallments(25000, jan29, 3);
+  assert(yeswanth[0].serviceDate.getMonth() === 0, "Installment 0 = January");
+  assert(yeswanth[1].serviceDate.getMonth() === 1, "Installment 1 = February, not March");
+  assert(yeswanth[1].serviceDate.getDate() === 28, "29 Jan + 1 month clamps to 28 Feb 2026");
+  assert(yeswanth[2].serviceDate.getMonth() === 2, "Installment 2 = March");
+  assert(yeswanth[2].serviceDate.getDate() === 29, "Installment 2 stays 29 March");
+
   console.log("\n2. Split % when target NOT met (40% on ₹10,000)");
   const belowConfig = {
     monthlyTarget: 60000,

@@ -7,6 +7,7 @@ import {
   listExpenses,
   prepareExpenseSheet,
 } from "@/lib/services/expenses";
+import { GYM_START_YEAR } from "@/lib/gym-calendar";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { ExpensesWorkspace } from "@/components/expenses/expenses-workspace";
 
@@ -38,7 +39,7 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
           </p>
         </div>
         <Suspense fallback={null}>
-          <MonthYearPicker month={month} year={year} enableShowAll={false} />
+          <MonthYearPicker month={month} year={year} enableShowAll={false} minYear={GYM_START_YEAR} />
         </Suspense>
       </div>
       <ExpensesWorkspace
@@ -46,6 +47,8 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
         dashboard={dashboard}
         monthExpenses={monthExpenses}
         yearExpenses={yearExpenses}
+        month={month}
+        year={year}
         sheetUrl={sheet.spreadsheetUrl}
         supervisorSheetUrl={sheet.supervisorSpreadsheetUrl}
         sheetError={sheet.error}

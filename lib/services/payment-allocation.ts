@@ -1,4 +1,16 @@
 /**
+ * Add calendar months without overflowing into the next month
+ * (29 Jan + 1 month → 28 Feb 2026, not 1 Mar).
+ */
+export function addCalendarMonths(date: Date, months: number): Date {
+  const year = date.getFullYear();
+  const monthIndex = date.getMonth() + months;
+  const day = date.getDate();
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(day, lastDay), 12, 0, 0, 0);
+}
+
+/**
  * Split a lump-sum PT payment evenly across package months.
  * Each installment is attributed to a service month (for target/split calc)
  * and payable to the trainer the following month.
@@ -24,18 +36,10 @@ export function allocateMonthlyInstallments(
       : Math.round((totalAmount / count) * 100) / 100;
     allocated += amount;
 
-    const serviceDate = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth() + i,
-      startDate.getDate(),
-      12,
-      0,
-      0,
-      0
-    );
+    const serviceDate = addCalendarMonths(startDate, i);
     const payableDate = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth() + i + 1,
+      serviceDate.getFullYear(),
+      serviceDate.getMonth() + 1,
       1,
       12,
       0,

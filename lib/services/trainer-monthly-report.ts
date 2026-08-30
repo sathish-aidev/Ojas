@@ -13,6 +13,8 @@ import {
   allocateMonthlyInstallments,
   inferMonthsCount,
 } from "@/lib/services/payment-allocation";
+import { realignTrainerInstallmentDates } from "@/lib/services/pt-tracker";
+import { toYmd } from "@/lib/date-ymd";
 
 export type TrainerMonthlyReportRow = {
   paymentId: string;
@@ -86,11 +88,12 @@ async function fetchServiceMonthPayments(employeeId: string, month: number, year
 
 function dedupeServiceMonthPayments(payments: ServiceMonthPayment[]): ServiceMonthPayment[] {
   const seen = new Map<string, ServiceMonthPayment>();
-  for (const p of payments) {
-    const key = `${p.subscriptionId}:${p.installmentIndex ?? 0}`;
-    if (!seen.has(key)) {
-      seen.set(key, p);
-    }
+  const sorted = [...payments].sort(
+    (a, b) => (b.installmentIndex ?? 0) - (a.installmentIndex ?? 0)
+  );
+  for (const p of sorted) {
+    const key = `${p.subscription.clientId}|${toYmd(p.subscription.startDate)}|${decimalToNumber(p.subscription.amount)}`;
+    if (!seen.has(key)) seen.set(key, p);
   }
   return [...seen.values()];
 }
@@ -146,6 +149,7 @@ export async function getTrainerMonthlyReport(
 
   if (!employee) return null;
 
+  await realignTrainerInstallmentDates(employeeId);
   await recalculateTrainerMonthSplits(employeeId, month, year);
 
   const [servicePayments, collectedPayments, totalPtRevenue] = await Promise.all([

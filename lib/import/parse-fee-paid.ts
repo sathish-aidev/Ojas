@@ -1,4 +1,4 @@
-import { parseFlexibleDate } from "./parse-csv-dates";
+import { parseSheetDate } from "./parse-csv-dates";
 
 export type FeePaidResult = {
   paymentDate: Date;
@@ -16,14 +16,14 @@ export function parseFeePaidOn(raw: string, startDate: Date): FeePaidResult {
     return { paymentDate: startDate, usedStartDateFallback: true };
   }
 
-  const direct = parseFlexibleDate(trimmed);
+  const direct = parseSheetDate(trimmed);
   if (direct) {
     return { paymentDate: direct, usedStartDateFallback: false };
   }
 
   const dateInText = trimmed.match(/(\d{1,2}[/-]\d{1,2}[/-]\d{4})/);
   if (dateInText) {
-    const parsed = parseFlexibleDate(dateInText[1]);
+    const parsed = parseSheetDate(dateInText[1]);
     if (parsed) {
       return { paymentDate: parsed, usedStartDateFallback: false };
     }

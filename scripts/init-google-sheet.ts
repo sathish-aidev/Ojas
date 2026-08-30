@@ -106,7 +106,7 @@ async function main() {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `'${tab.replace(/'/g, "''")}'!A1`,
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       requestBody: { values },
     });
   }

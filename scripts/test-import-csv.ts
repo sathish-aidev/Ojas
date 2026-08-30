@@ -5,7 +5,7 @@
 import { parseFlexibleDate, formatDateDMY, parseSheetDate, googleSerialToDate } from "../lib/import/parse-csv-dates";
 import { parseFeePaidOn } from "../lib/import/parse-fee-paid";
 import { mapPaymentMode } from "../lib/import/map-payment-mode";
-import { parseGymCsv } from "../lib/import/parse-gym-csv";
+import { parseGymCsv, dedupeParsedGymRows } from "../lib/import/parse-gym-csv";
 
 let passed = 0;
 let failed = 0;
@@ -40,6 +40,7 @@ assert(googleSerialToDate(serialJan4)!.getMonth() === 0, "Serial for 4 Jan 2026 
 assert(parseSheetDate(serialJan4)!.getDate() === 4, "Numeric serial → 4 January");
 assert(parseSheetDate(String(Math.floor(serialJan4)))!.getMonth() === 0, "Serial string → January");
 assert(parseSheetDate(1500) === null, "Small numbers are not treated as dates");
+assert(parseSheetDate("1/29/2026")!.getDate() === 29 && parseSheetDate("1/29/2026")!.getMonth() === 0, "US text 1/29/2026 → 29 January");
 
 console.log("\n2. parseFeePaidOn");
 const start = parseFlexibleDate("03/01/2026")!;
@@ -72,6 +73,15 @@ assert(result.rows.length === 2, "Parses 2 data rows");
 assert(result.rows[0].customer === "Dhaval", "First customer is Dhaval");
 assert(result.rows[0].amount === 15000, "Dhaval amount = 15000");
 assert(result.rows[0].monthsCount === 2, "Dhaval months = 2");
+
+console.log("\n6. Dedupe identical pack rows");
+const duped = dedupeParsedGymRows([
+  result.rows[0],
+  { ...result.rows[0], rowNumber: 99 },
+]);
+assert(duped.rows.length === 1, "Keeps one row per customer+start+amount");
+assert(duped.dropped.length === 1, "Drops the extra identical pack");
+assert(duped.rows[0].rowNumber === 99, "Last copy wins");
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

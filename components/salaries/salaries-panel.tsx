@@ -79,11 +79,11 @@ export function SalariesPanel({
     router.refresh();
   }
 
-  async function saveStaffSalary(employeeId: string, baseSalary: number) {
+  async function savePaidAmount(employeeId: string, netPay: number) {
     await fetch("/api/payroll/salary-override", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId, month, year, baseSalary }),
+      body: JSON.stringify({ employeeId, month, year, netPay }),
     });
     router.refresh();
   }
@@ -151,11 +151,12 @@ export function SalariesPanel({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {employee.employeeType !== "TRAINER" && (canEdit || canPay) && (
+                    {(canEdit || canPay) && (
                       <StaffSalaryInput
+                        key={`${employee.id}-${payroll.netPay}`}
                         compact
-                        defaultValue={payroll.baseSalary}
-                        onSave={(value) => saveStaffSalary(employee.id, value)}
+                        defaultValue={payroll.netPay}
+                        onSave={(value) => savePaidAmount(employee.id, value)}
                       />
                     )}
                     {employee.employeeType === "TRAINER" && (
@@ -193,14 +194,15 @@ export function SalariesPanel({
                   <p className="text-sm text-muted-foreground">
                     Payroll not generated for this month.
                   </p>
-                  {employee.employeeType !== "TRAINER" && (canEdit || canPay) && (
+                  {(canEdit || canPay) && (
                     <StaffSalaryInput
+                      key={`${employee.id}-new`}
                       defaultValue={
                         salaryOverride ??
                         employee.defaultSalary ??
                         0
                       }
-                      onSave={(value) => saveStaffSalary(employee.id, value)}
+                      onSave={(value) => savePaidAmount(employee.id, value)}
                     />
                   )}
                   {employee.employeeType === "TRAINER" && (
@@ -235,10 +237,16 @@ function StaffSalaryInput({
 
   return (
     <div className={`flex items-center gap-2 ${compact ? "" : "max-w-xs"}`}>
-      {!compact && <span className="text-sm text-muted-foreground">Salary this month</span>}
+      <span className="text-sm text-muted-foreground whitespace-nowrap">
+        {compact ? "Paid (₹)" : "Paid this month (₹)"}
+      </span>
       <Input
         type="number"
         inputMode="numeric"
+        min={0}
+        step="1"
+        aria-label="Paid this month"
+        title="Amount actually paid (Base + PT share + incentives)"
         className="min-h-10 w-32"
         value={value}
         onChange={(e) => setValue(e.target.value)}
