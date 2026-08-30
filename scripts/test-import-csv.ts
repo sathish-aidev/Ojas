@@ -6,6 +6,7 @@ import { parseFlexibleDate, formatDateDMY, parseSheetDate, googleSerialToDate } 
 import { parseFeePaidOn } from "../lib/import/parse-fee-paid";
 import { mapPaymentMode } from "../lib/import/map-payment-mode";
 import { parseGymCsv, dedupeParsedGymRows } from "../lib/import/parse-gym-csv";
+import { realignTrainerSheetRows, parseGymSheetRows } from "../lib/import/parse-gym-sheet";
 
 let passed = 0;
 let failed = 0;
@@ -92,6 +93,20 @@ assert(tableParsed.errors.length === 0, "Table-formatted amount still parses");
 assert(tableParsed.rows[0].customer === "nisha&agra", "Reads the Table header client row");
 assert(tableParsed.rows[0].amount === 15000, "# 15000 → 15000");
 assert(tableParsed.rows[0].monthsCount === 1, "# 1 → 1");
+
+console.log("\n8. Realign title / blank row / headers");
+const skewed = [
+  ["Impackt Fitness PT Tracker | Trainer: Rohith | Master copy — source of truth | Dates: DD/MM/YYYY"],
+  [],
+  ["Customer", "Start Date", "End Date", "Fee paid on", "Amount", "Months", "Mode of Payment"],
+  ["Pooja", "08/01/2026", "07/02/2026", "06/01/2026", "7500", "1", "PhonePay to Sathish"],
+  ["kishore", "10/01/2026", "10/02/2026", "10/01/2026", "8000", "1", "UPI"],
+];
+const aligned = realignTrainerSheetRows(skewed, "Rohith");
+assert(aligned[1][0] === "Customer", "Headers move to row 2");
+assert(aligned[2][0] === "Pooja", "First client is row 3");
+assert(aligned[3][0] === "kishore", "Second client stays immediately after");
+assert(parseGymSheetRows(skewed).rows.length === parseGymSheetRows(aligned).rows.length, "Client count unchanged");
 
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);
