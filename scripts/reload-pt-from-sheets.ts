@@ -3,6 +3,7 @@
  * Keeps gym, users, trainers, split rules, expenses, and Cult settlements.
  *
  * Dry run:         npx tsx scripts/reload-pt-from-sheets.ts --prod
+ * Wipe only:       npx tsx scripts/reload-pt-from-sheets.ts --prod --wipe-only --apply
  * From snapshot:   npx tsx scripts/reload-pt-from-sheets.ts --prod --from-snapshot --apply
  * Live sheet:      npx tsx scripts/reload-pt-from-sheets.ts --prod --apply
  */
@@ -11,6 +12,7 @@ import { config } from "dotenv";
 const prod = process.argv.includes("--prod");
 const apply = process.argv.includes("--apply");
 const fromSnapshot = process.argv.includes("--from-snapshot");
+const wipeOnly = process.argv.includes("--wipe-only");
 config({ path: prod ? ".env.vercel.production" : ".env", override: true });
 
 async function clearPtData(prisma: import("@prisma/client").PrismaClient) {
@@ -50,6 +52,24 @@ async function main() {
     const beforeSubs = await prisma.pTSubscription.count();
     const beforePayments = await prisma.payment.count();
     console.log(`Current: ${beforeClients} clients, ${beforeSubs} packs, ${beforePayments} installments`);
+
+    if (wipeOnly) {
+      const { flattenTrainerTabTables } = await import("../lib/google/sheets-write");
+      if (!apply) {
+        console.log("\nDry run. Pass --apply to convert trainer Tables to normal rows and delete PT data.");
+        console.log("Google Sheets client rows are kept. Then tap Sync sheets in the app.");
+        return;
+      }
+      for (const tabName of TRAINER_SHEET_TABS) {
+        const removed = await flattenTrainerTabTables(tabName);
+        console.log(`  ${tabName}: removed ${removed} Table(s); row 3 is a normal client row`);
+      }
+      console.log("\nWiping clients, PT packs, payments, sessions, and payroll…");
+      await clearPtData(prisma);
+      const after = await prisma.client.count();
+      console.log(`Wipe complete (${after} clients left). Import from Google Sheets with Sync sheets.`);
+      return;
+    }
 
     const snapshots: Array<{
       tabName: string;

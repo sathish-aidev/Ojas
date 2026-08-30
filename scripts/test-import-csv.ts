@@ -83,5 +83,15 @@ assert(duped.rows.length === 1, "Keeps one row per customer+start+amount");
 assert(duped.dropped.length === 1, "Drops the extra identical pack");
 assert(duped.rows[0].rowNumber === 99, "Last copy wins");
 
+console.log("\n7. Google Sheets Table amount/months (# 15000)");
+const tableFixture = `Customer,Start Date,End Date,Fee paid on,Amount,Months,Mode of Payment
+nisha&agra,07/01/2026,07/02/2026,01/05/2026,# 15000,# 1,PhonePay to Sathish
+`;
+const tableParsed = parseGymCsv(tableFixture);
+assert(tableParsed.errors.length === 0, "Table-formatted amount still parses");
+assert(tableParsed.rows[0].customer === "nisha&agra", "Reads the Table header client row");
+assert(tableParsed.rows[0].amount === 15000, "# 15000 → 15000");
+assert(tableParsed.rows[0].monthsCount === 1, "# 1 → 1");
+
 console.log(`\n=== Results: ${passed} passed, ${failed} failed ===\n`);
 process.exit(failed > 0 ? 1 : 0);

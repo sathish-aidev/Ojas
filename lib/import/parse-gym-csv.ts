@@ -91,14 +91,14 @@ function findColumnIndex(headers: string[], patterns: RegExp[]): number {
 }
 
 function parseAmount(raw: string): number | null {
-  const cleaned = raw.replace(/[₹,\s]/g, "").trim();
+  const cleaned = raw.replace(/[#₹,\s]/g, "").trim();
   if (!cleaned) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
 function parseMonths(raw: string): number | null {
-  const cleaned = raw.trim();
+  const cleaned = raw.replace(/[#,\s]/g, "").trim();
   if (!cleaned) return null;
   const n = parseInt(cleaned, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -129,10 +129,15 @@ export function parseGymCsv(content: string): ParseGymCsvResult {
     const headers = cells.map((c) => c.trim());
     const customerIdx = findColumnIndex(headers, [/^customer$/]);
     const startIdx = findColumnIndex(headers, [/^start date$/]);
+    const endIdx = findColumnIndex(headers, [/^end date$/]);
+    const amountIdx = findColumnIndex(headers, [/^amount$/]);
 
-    if (customerIdx >= 0 && startIdx >= 0) {
+    const resolvedCustomer =
+      customerIdx >= 0 ? customerIdx : startIdx > 0 && endIdx >= 0 && amountIdx >= 0 ? startIdx - 1 : -1;
+
+    if (resolvedCustomer >= 0 && startIdx >= 0) {
       headerRowIndex = i;
-      colCustomer = customerIdx;
+      colCustomer = resolvedCustomer;
       colStart = startIdx;
       colEnd = findColumnIndex(headers, [/^end date$/]);
       colFeePaid = findColumnIndex(headers, [/^fee paid on$/]);
@@ -167,6 +172,7 @@ export function parseGymCsv(content: string): ParseGymCsvResult {
     const rowNumber = i + 1;
     const customer = (cells[colCustomer] ?? "").trim();
     if (!customer) continue;
+    if (/^कॉलम\s*\d+$/.test(customer) || /^column\s*\d+$/i.test(customer)) continue;
 
     const startRaw = (cells[colStart] ?? "").trim();
     const endRaw = (cells[colEnd] ?? "").trim();

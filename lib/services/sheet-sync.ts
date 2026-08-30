@@ -6,6 +6,7 @@ import { dedupeParsedGymRows } from "@/lib/import/parse-gym-csv";
 import { allocateMonthlyInstallments } from "@/lib/services/payment-allocation";
 import { upsertSubscriptionWithPayment } from "@/lib/services/pt-tracker";
 import { recalculateTrainerMonthSplits } from "@/lib/services/trainer-split";
+import { flattenTrainerTabTables } from "@/lib/google/sheets-write";
 import { exportGymToGoogleSheet } from "@/lib/services/sheet-export";
 import { TRAINER_SHEET_TABS } from "@/lib/sheet-config";
 import { startOfTodayInTimeZone } from "@/lib/date-ymd";
@@ -168,6 +169,7 @@ export async function syncAllTrainerTabs(
   for (const tabName of tabs) {
     let rawRows: string[][] = [];
     try {
+      await flattenTrainerTabTables(tabName);
       rawRows = await fetchSheetTab(tabName);
       const parsed = parseGymSheetRows(rawRows);
       snapshots.push({
