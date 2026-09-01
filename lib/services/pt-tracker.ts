@@ -169,7 +169,10 @@ export async function getTrainerDashboardStats(employeeId: string) {
   };
 }
 
-export async function getTrainerOverview(gymId: string) {
+export async function getTrainerOverview(
+  gymId: string,
+  forMonth?: { month: number; year: number }
+) {
   const trainers = await prisma.employee.findMany({
     where: { gymId, employeeType: "TRAINER" },
     include: {
@@ -187,7 +190,7 @@ export async function getTrainerOverview(gymId: string) {
     },
   });
 
-  const { month, year } = getMonthYear();
+  const { month, year } = forMonth ?? getMonthYear();
 
   const result = await Promise.all(
     trainers.map(async (trainer) => {

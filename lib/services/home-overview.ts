@@ -1,8 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { decimalToNumber, formatDate } from "@/lib/utils";
-import { getMonthName, getMonthYear } from "@/lib/permissions";
+import { getMonthName } from "@/lib/permissions";
 import { shiftMonth } from "@/lib/date-ymd";
-import { GYM_START_MONTH, GYM_START_YEAR, isBeforeGymStart } from "@/lib/gym-calendar";
+import {
+  BOOKS_CLOSE_DAY,
+  formatCloseByLabel,
+  formatMonthYear,
+  getGymToday,
+  GYM_START_MONTH,
+  GYM_START_YEAR,
+  isBeforeGymStart,
+  isBooksOverdue,
+  lastCompletableMonth,
+  maxYearMonth,
+  monthOrdinal,
+  pickClosedBooksMonth,
+  type YearMonth,
+} from "@/lib/gym-calendar";
 import { EXPENSE_CATEGORY_LABELS, NET_FORMULA_LABEL } from "@/lib/revenue-constants";
 import {
   getRevenueMonthSummary,
@@ -49,11 +63,33 @@ export type TrendPoint = {
   netResult: number;
 };
 
+export type CompareRow = {
+  label: string;
+  books: number;
+  prior: number | null;
+};
+
+export type YtdTotals = {
+  year: number;
+  throughLabel: string;
+  grossIncome: number;
+  totalCosts: number;
+  netResult: number;
+  ptRevenue: number;
+};
+
 export type OwnerHomeOverview = {
-  monthLabel: string;
+  booksLabel: string;
+  calendarLabel: string;
+  ptMonthLabel: string;
   formula: string;
-  kpis: HomeKpi[];
+  subtitle: string;
+  booksHref: string;
+  closedKpis: HomeKpi[];
+  liveKpis: HomeKpi[];
   alerts: HomeAlert[];
+  compare: { booksLabel: string; priorLabel: string; rows: CompareRow[] } | null;
+  ytd: YtdTotals;
   trend: TrendPoint[];
   incomeMix: NamedAmount[];
   expenseMix: NamedAmount[];
@@ -73,6 +109,7 @@ export type OwnerHomeOverview = {
     netPay: number;
     status: string;
   }>;
+  payrollLabel: string;
   renewals: Array<{
     id: string;
     clientName: string;
@@ -89,8 +126,13 @@ export type OwnerHomeOverview = {
 };
 
 export type SupervisorHomeOverview = {
-  monthLabel: string;
-  kpis: HomeKpi[];
+  booksLabel: string;
+  calendarLabel: string;
+  ptMonthLabel: string;
+  spendMonthLabel: string;
+  subtitle: string;
+  closedKpis: HomeKpi[];
+  liveKpis: HomeKpi[];
   alerts: HomeAlert[];
   ptByTrainer: Array<{ name: string; clients: number; ptRevenue: number }>;
   spendMix: NamedAmount[];
@@ -101,6 +143,7 @@ export type SupervisorHomeOverview = {
     netPay: number;
     status: string;
   }>;
+  payrollLabel: string;
   renewals: Array<{
     id: string;
     clientName: string;
@@ -117,7 +160,8 @@ export type SupervisorHomeOverview = {
 };
 
 export type TrainerHomeOverview = {
-  monthLabel: string;
+  booksLabel: string;
+  calendarLabel: string;
   trainerName: string;
   kpis: HomeKpi[];
   alerts: HomeAlert[];
@@ -127,12 +171,13 @@ export type TrainerHomeOverview = {
     monthlyTarget: number | null;
     ptRevenue: number;
     splitPercent: number;
+    label: string;
   } | null;
   earningsTrend: Array<{ label: string; earnings: number; ptRevenue: number }>;
   clientMix: NamedAmount[];
   todaySchedule: Awaited<ReturnType<typeof getTrainerDashboardStats>>["todaySchedule"];
   expiringClients: Array<{ id: string; clientId: string; clientName: string }>;
-  payroll: { status: string; netPay: number } | null;
+  payroll: { status: string; netPay: number; monthLabel: string } | null;
 };
 
 function momPct(current: number, previous: number | undefined): number | null {
@@ -168,6 +213,64 @@ function trendMonthsBack(month: number, year: number, count: number) {
   }
   if (keys.length === 0) keys.push({ month: GYM_START_MONTH, year: GYM_START_YEAR });
   return keys;
+}
+
+function sameMonth(a: YearMonth, b: YearMonth) {
+  return a.month === b.month && a.year === b.year;
+}
+
+function monthHref(path: string, month: number, year: number) {
+  return `${path}?month=${month}&year=${year}`;
+}
+
+async function resolveHomePeriod(gymId: string) {
+  const today = getGymToday();
+  const calendar = { month: today.month, year: today.year };
+  const previous = lastCompletableMonth(calendar);
+
+  const [latestCult, latestExpense, latestPayment] = await Promise.all([
+    prisma.cultSettlement.findFirst({
+      where: { gymId, partnerShare: { not: null } },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      select: { month: true, year: true },
+    }),
+    prisma.gymExpense.findFirst({
+      where: { gymId },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      select: { month: true, year: true },
+    }),
+    prisma.payment.findFirst({
+      where: { subscription: { client: { gymId } } },
+      orderBy: [{ collectedAt: "desc" }, { paidAt: "desc" }],
+      select: { collectedAt: true, paidAt: true },
+    }),
+  ]);
+
+  const paymentMonth = latestPayment
+    ? (() => {
+        const collected = getGymToday(getPaymentCollectionDate(latestPayment));
+        return { month: collected.month, year: collected.year };
+      })()
+    : null;
+
+  const { books, due } = pickClosedBooksMonth({
+    today: calendar,
+    latestCult,
+    latestActivity: maxYearMonth(latestExpense, paymentMonth),
+  });
+
+  return { today, calendar, previous, books, due };
+}
+
+function booksSubtitle(
+  booksLabel: string,
+  calendarLabel: string,
+  due: YearMonth | null
+) {
+  if (due) {
+    return `Showing ${booksLabel} (last closed books). ${formatMonthYear(due.month, due.year)} is usually entered by ${formatCloseByLabel(due)}.`;
+  }
+  return `${booksLabel} closed books. ${calendarLabel} is still in progress — full figures land around the ${BOOKS_CLOSE_DAY}th.`;
 }
 
 async function getOperationalSnapshot(gymId: string) {
@@ -247,39 +350,99 @@ function payrollRows(
   }));
 }
 
-export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOverview> {
-  const { month, year } = getMonthYear();
-  const monthLabel = `${getMonthName(month)} ${year}`;
+function mapTrend(rows: Awaited<ReturnType<typeof getRevenueTrend>>): TrendPoint[] {
+  return rows.map((row) => ({
+    label: shortMonthLabel(row.month, row.year),
+    cultIncome: row.cultIncome,
+    ptRevenue: row.ptRevenue,
+    expenses: row.manualExpenses,
+    payrollPaid: row.payrollPaid,
+    grossIncome: row.grossIncome,
+    totalCosts: row.totalCosts,
+    netResult: row.netResult,
+  }));
+}
 
-  const [summary, trendRaw, trainers, ops, expenseDash, recentExpenses] = await Promise.all([
-    getRevenueMonthSummary(gymId, month, year),
-    getRevenueTrend(gymId, month, year),
-    getTrainerOverview(gymId),
+function pickPtMonth(
+  previous: YearMonth,
+  books: YearMonth,
+  trend: Awaited<ReturnType<typeof getRevenueTrend>>
+) {
+  const previousRow = trend.find((row) => row.month === previous.month && row.year === previous.year);
+  if (previousRow && previousRow.ptRevenue > 0) return previous;
+  return books;
+}
+
+function ytdFromTrend(
+  trend: Awaited<ReturnType<typeof getRevenueTrend>>,
+  books: YearMonth
+): YtdTotals {
+  const rows = trend.filter(
+    (row) => row.year === books.year && monthOrdinal(row.month, row.year) <= monthOrdinal(books.month, books.year)
+  );
+  return {
+    year: books.year,
+    throughLabel: getMonthName(books.month),
+    grossIncome: rows.reduce((sum, row) => sum + row.grossIncome, 0),
+    totalCosts: rows.reduce((sum, row) => sum + row.totalCosts, 0),
+    netResult: rows.reduce((sum, row) => sum + row.netResult, 0),
+    ptRevenue: rows.reduce((sum, row) => sum + row.ptRevenue, 0),
+  };
+}
+
+export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOverview> {
+  const period = await resolveHomePeriod(gymId);
+  const { today, calendar, previous, books, due } = period;
+  const booksLabel = formatMonthYear(books.month, books.year);
+  const calendarLabel = formatMonthYear(calendar.month, calendar.year);
+  const booksHref = monthHref("/owner/revenue", books.month, books.year);
+
+  const [summary, trendRaw, ops, expenseDash, recentExpenses, calendarPtPayments] = await Promise.all([
+    getRevenueMonthSummary(gymId, books.month, books.year),
+    getRevenueTrend(gymId, previous.month, previous.year),
     getOperationalSnapshot(gymId),
-    getExpenseDashboard(gymId, month, year),
+    getExpenseDashboard(gymId, calendar.month, calendar.year),
     prisma.gymExpense.findMany({
       where: { gymId, kind: { in: ["OWNER_BILL", "SUPERVISOR_ADVANCE"] } },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 6,
     }),
+    prisma.payment.findMany({
+      where: {
+        ...paymentsCollectedInMonthWhere(calendar.month, calendar.year),
+        subscription: { client: { gymId } },
+      },
+      select: { amount: true },
+    }),
   ]);
 
-  const prev = trendRaw.length > 1 ? trendRaw[trendRaw.length - 2] : undefined;
-  const cultEntered = summary.partnerShare != null;
+  const ptMonth = pickPtMonth(previous, books, trendRaw);
+  const trainers = await getTrainerOverview(gymId, ptMonth);
+  const ptMonthLabel = formatMonthYear(ptMonth.month, ptMonth.year);
+
+  const booksTrend = trendRaw.filter(
+    (row) => monthOrdinal(row.month, row.year) <= monthOrdinal(books.month, books.year)
+  );
+  const prev = booksTrend.length > 1 ? booksTrend[booksTrend.length - 2] : undefined;
   const pendingPayroll = summary.payrollRuns.filter((run) => run.status !== "PAID").length;
+  const calendarPt = calendarPtPayments.reduce((sum, payment) => sum + decimalToNumber(payment.amount), 0);
 
   const alerts: HomeAlert[] = [];
-  if (!cultEntered) {
+  if (due) {
+    const dueLabel = formatMonthYear(due.month, due.year);
+    const overdue = isBooksOverdue(today, due);
     alerts.push({
       tone: "warning",
-      text: `Received from Cult is not entered for ${monthLabel}`,
-      href: "/owner/revenue",
+      text: overdue
+        ? `${dueLabel} books are past the usual ${formatCloseByLabel(due)} entry. Home is still showing ${booksLabel}.`
+        : `${dueLabel} income and expenses are usually entered by ${formatCloseByLabel(due)}. Home is showing ${booksLabel} until then.`,
+      href: monthHref("/owner/revenue", due.month, due.year),
     });
   }
   if (pendingPayroll > 0) {
     alerts.push({
       tone: "warning",
-      text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid`,
+      text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid for ${booksLabel}`,
       href: "/owner/salaries",
     });
   }
@@ -298,12 +461,12 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
     });
   }
 
-  const kpis: HomeKpi[] = [
+  const closedKpis: HomeKpi[] = [
     {
       title: "Net result",
       value: formatInr(summary.netResult),
-      subtitle: monthLabel,
-      href: "/owner/revenue",
+      subtitle: booksLabel,
+      href: booksHref,
       deltaPct: momPct(summary.netResult, prev?.netResult),
       highlight: true,
       tone: summary.netResult >= 0 ? "positive" : "negative",
@@ -312,14 +475,14 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       title: "Gross income",
       value: formatInr(summary.grossIncome),
       subtitle: "Cult after TDS + Total PT",
-      href: "/owner/revenue",
+      href: booksHref,
       deltaPct: momPct(summary.grossIncome, prev?.grossIncome),
     },
     {
       title: "Costs",
       value: formatInr(summary.totalCosts),
       subtitle: `Bills ${formatInr(summary.manualExpenses)} · Pay ${formatInr(summary.payrollPaid)}`,
-      href: "/owner/expenses",
+      href: monthHref("/owner/expenses", books.month, books.year),
       deltaPct: momPct(summary.totalCosts, prev?.totalCosts),
       deltaInvert: true,
     },
@@ -327,9 +490,12 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       title: "Total PT",
       value: formatInr(summary.ptRevenue),
       subtitle: `Owner ${formatInr(summary.ownerPtShare)} · Trainer ${formatInr(summary.trainerPtShare)}`,
-      href: "/owner/reports",
+      href: monthHref("/owner/reports", books.month, books.year),
       deltaPct: momPct(summary.ptRevenue, prev?.ptRevenue),
     },
+  ];
+
+  const liveKpis: HomeKpi[] = [
     {
       title: "Active PT clients",
       value: String(ops.activePtClients),
@@ -344,14 +510,10 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       tone: ops.renewals7Count > 0 ? "warning" : "default",
     },
     {
-      title: "Payroll pending",
-      value: formatInr(summary.payrollPending),
-      subtitle:
-        summary.payrollRuns.length === 0
-          ? "Not generated this month"
-          : `${pendingPayroll} unpaid · ${summary.payrollRuns.length - pendingPayroll} paid`,
-      href: "/owner/salaries",
-      tone: summary.payrollPending > 0 ? "warning" : "default",
+      title: "PT this month so far",
+      value: formatInr(calendarPt),
+      subtitle: `${calendarLabel} collections`,
+      href: "/owner/reports",
     },
     {
       title: "Petty cash left",
@@ -362,21 +524,39 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
     },
   ];
 
+  const priorKey = shiftMonth(books.month, books.year, -1);
+  const priorRow =
+    !isBeforeGymStart(priorKey.month, priorKey.year)
+      ? booksTrend.find((row) => row.month === priorKey.month && row.year === priorKey.year)
+      : undefined;
+  const compare = priorRow
+    ? {
+        booksLabel,
+        priorLabel: formatMonthYear(priorRow.month, priorRow.year),
+        rows: [
+          { label: "Cult after TDS", books: summary.cultIncome, prior: priorRow.cultIncome },
+          { label: "Total PT", books: summary.ptRevenue, prior: priorRow.ptRevenue },
+          { label: "Gross income", books: summary.grossIncome, prior: priorRow.grossIncome },
+          { label: "Gym bills", books: summary.manualExpenses, prior: priorRow.manualExpenses },
+          { label: "Payroll paid", books: summary.payrollPaid, prior: priorRow.payrollPaid },
+          { label: "Net result", books: summary.netResult, prior: priorRow.netResult },
+        ],
+      }
+    : null;
+
   return {
-    monthLabel,
+    booksLabel,
+    calendarLabel,
+    ptMonthLabel,
     formula: NET_FORMULA_LABEL,
-    kpis,
+    subtitle: booksSubtitle(booksLabel, calendarLabel, due),
+    booksHref,
+    closedKpis,
+    liveKpis,
     alerts,
-    trend: trendRaw.map((row) => ({
-      label: shortMonthLabel(row.month, row.year),
-      cultIncome: row.cultIncome,
-      ptRevenue: row.ptRevenue,
-      expenses: row.manualExpenses,
-      payrollPaid: row.payrollPaid,
-      grossIncome: row.grossIncome,
-      totalCosts: row.totalCosts,
-      netResult: row.netResult,
-    })),
+    compare,
+    ytd: ytdFromTrend(booksTrend, books),
+    trend: mapTrend(booksTrend),
     incomeMix: [
       { name: "Cult after TDS", value: summary.cultIncome },
       { name: "Total PT", value: summary.ptRevenue },
@@ -401,6 +581,7 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       netPay: run.netPay,
       status: run.status,
     })),
+    payrollLabel: booksLabel,
     renewals: ops.renewals,
     recentExpenses: recentExpenses.map((row) => ({
       id: row.id,
@@ -413,15 +594,17 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
 }
 
 export async function getSupervisorHomeOverview(gymId: string): Promise<SupervisorHomeOverview> {
-  const { month, year } = getMonthYear();
-  const monthLabel = `${getMonthName(month)} ${year}`;
+  const period = await resolveHomePeriod(gymId);
+  const { today, calendar, previous, books, due } = period;
+  const booksLabel = formatMonthYear(books.month, books.year);
+  const calendarLabel = formatMonthYear(calendar.month, calendar.year);
 
-  const [trainers, ops, expenseDash, payrollRuns, recentSpends, ptPayments] = await Promise.all([
-    getTrainerOverview(gymId),
+  const [ops, liveExpenses, booksExpenses, payrollRuns, recentSpends, trendRaw] = await Promise.all([
     getOperationalSnapshot(gymId),
-    getExpenseDashboard(gymId, month, year),
+    getExpenseDashboard(gymId, calendar.month, calendar.year),
+    getExpenseDashboard(gymId, books.month, books.year),
     prisma.payrollRun.findMany({
-      where: { month, year, employee: { gymId } },
+      where: { month: books.month, year: books.year, employee: { gymId } },
       include: { employee: { include: { user: true } } },
       orderBy: { employee: { user: { name: "asc" } } },
     }),
@@ -430,37 +613,50 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 6,
     }),
-    prisma.payment.findMany({
-      where: {
-        ...paymentsCollectedInMonthWhere(month, year),
-        subscription: { client: { gymId } },
-      },
-      select: { amount: true },
-    }),
+    getRevenueTrend(gymId, previous.month, previous.year),
   ]);
 
-  const ptRevenue = ptPayments.reduce((sum, payment) => sum + decimalToNumber(payment.amount), 0);
+  const ptMonth = pickPtMonth(previous, books, trendRaw);
+  const trainers = await getTrainerOverview(gymId, ptMonth);
+  const ptMonthLabel = formatMonthYear(ptMonth.month, ptMonth.year);
+
+  let spendMonth = books;
+  let spendMix = booksExpenses.spendByCategory.map((row) => ({ name: row.label, value: row.amount }));
+  if (spendMix.length === 0) {
+    const lastSpend = [...liveExpenses.trend].reverse().find((row) => row.spendTotal > 0);
+    if (lastSpend) {
+      spendMonth = { month: lastSpend.month, year: lastSpend.year };
+      if (!sameMonth(spendMonth, books)) {
+        const spendDash = await getExpenseDashboard(gymId, spendMonth.month, spendMonth.year);
+        spendMix = spendDash.spendByCategory.map((row) => ({ name: row.label, value: row.amount }));
+      }
+    }
+  }
+  const spendMonthLabel = formatMonthYear(spendMonth.month, spendMonth.year);
+  const spendTotal = spendMix.reduce((sum, row) => sum + row.value, 0);
+
   const payroll = payrollRows(payrollRuns);
   const pendingPayroll = payroll.filter((run) => run.status !== "PAID").length;
-  const petty = {
-    remaining: expenseDash.pettyRemaining,
-    issued: expenseDash.pettyIssuedAll,
-    spent: expenseDash.pettySpentAll,
-    spentMonth: expenseDash.pettySpentMonth,
-    issuedMonth: expenseDash.pettyIssuedMonth,
-  };
+  const ptRevenue = trainers.reduce((sum, trainer) => sum + trainer.monthlyRevenue, 0);
 
   const alerts: HomeAlert[] = [];
-  if (petty.remaining < 0) {
+  if (due) {
+    alerts.push({
+      tone: isBooksOverdue(today, due) ? "warning" : "info",
+      text: `${formatMonthYear(due.month, due.year)} gym bills are usually entered by ${formatCloseByLabel(due)}.`,
+      href: "/supervisor/expenses",
+    });
+  }
+  if (liveExpenses.pettyRemaining < 0) {
     alerts.push({
       tone: "warning",
       text: "Petty cash is overdrawn — ask the owner for a top-up",
       href: "/supervisor/expenses",
     });
-  } else if (petty.remaining > 0 && petty.remaining < 2000) {
+  } else if (liveExpenses.pettyRemaining > 0 && liveExpenses.pettyRemaining < 2000) {
     alerts.push({
       tone: "info",
-      text: `Petty cash remaining is ${formatInr(petty.remaining)}`,
+      text: `Petty cash remaining is ${formatInr(liveExpenses.pettyRemaining)}`,
       href: "/supervisor/expenses",
     });
   }
@@ -474,23 +670,17 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
   if (pendingPayroll > 0) {
     alerts.push({
       tone: "warning",
-      text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid`,
+      text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid for ${booksLabel}`,
       href: "/supervisor/salaries",
     });
   }
 
-  const kpis: HomeKpi[] = [
+  const liveKpis: HomeKpi[] = [
     {
       title: "Active PT clients",
       value: String(ops.activePtClients),
       subtitle: `${ops.totalClients} clients · ${ops.trainerCount} trainers`,
       href: "/supervisor/clients",
-    },
-    {
-      title: "PT collected (MTD)",
-      value: formatInr(ptRevenue),
-      subtitle: monthLabel,
-      href: "/supervisor/reports",
     },
     {
       title: "Renewals (7 days)",
@@ -501,31 +691,37 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
     },
     {
       title: "Petty cash left",
-      value: formatInr(petty.remaining),
-      subtitle: `Issued ${formatInr(petty.issued)} · Spent ${formatInr(petty.spent)}`,
+      value: formatInr(liveExpenses.pettyRemaining),
+      subtitle: `Issued ${formatInr(liveExpenses.pettyIssuedAll)} · Spent ${formatInr(liveExpenses.pettySpentAll)}`,
       href: "/supervisor/expenses",
       highlight: true,
-      tone: petty.remaining < 0 ? "negative" : petty.remaining === 0 ? "default" : "positive",
+      tone: liveExpenses.pettyRemaining < 0 ? "negative" : liveExpenses.pettyRemaining === 0 ? "default" : "positive",
     },
     {
-      title: "Spent this month",
-      value: formatInr(petty.spentMonth),
-      subtitle: expenseDash.spendByCategory[0]
-        ? `Top: ${expenseDash.spendByCategory[0].label}`
-        : "From cash given by owner",
+      title: "Spent this month so far",
+      value: formatInr(liveExpenses.pettySpentMonth),
+      subtitle: calendarLabel,
       href: "/supervisor/expenses",
     },
+  ];
+
+  const closedKpis: HomeKpi[] = [
     {
-      title: "Cash received (MTD)",
-      value: formatInr(petty.issuedMonth),
-      subtitle: "Owner advances this month",
+      title: "PT collected",
+      value: formatInr(ptRevenue),
+      subtitle: ptMonthLabel,
+      href: "/supervisor/reports",
+    },
+    {
+      title: "Supervisor spend",
+      value: formatInr(spendTotal),
+      subtitle: spendMonthLabel,
       href: "/supervisor/expenses",
     },
     {
       title: "Payroll unpaid",
       value: String(pendingPayroll),
-      subtitle:
-        payroll.length === 0 ? "Not generated this month" : `${payroll.length} runs this month`,
+      subtitle: payroll.length === 0 ? `Not generated for ${booksLabel}` : `${payroll.length} runs · ${booksLabel}`,
       href: "/supervisor/salaries",
       tone: pendingPayroll > 0 ? "warning" : "default",
     },
@@ -538,22 +734,28 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
   ];
 
   return {
-    monthLabel,
-    kpis,
+    booksLabel,
+    calendarLabel,
+    ptMonthLabel,
+    spendMonthLabel,
+    subtitle: booksSubtitle(booksLabel, calendarLabel, due),
+    closedKpis,
+    liveKpis,
     alerts,
     ptByTrainer: trainers.map((trainer) => ({
       name: trainer.name,
       clients: trainer.clientCount,
       ptRevenue: trainer.monthlyRevenue,
     })),
-    spendMix: expenseDash.spendByCategory.map((row) => ({ name: row.label, value: row.amount })),
-    spendTrend: expenseDash.trend
+    spendMix,
+    spendTrend: liveExpenses.trend
       .filter((row) => !isBeforeGymStart(row.month, row.year))
       .map((row) => ({
         label: shortMonthLabel(row.month, row.year),
         spent: row.spendTotal,
       })),
     payroll,
+    payrollLabel: booksLabel,
     renewals: ops.renewals,
     recentSpends: recentSpends.map((row) => ({
       id: row.id,
@@ -572,13 +774,16 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
   });
   if (!employee) return null;
 
-  const { month, year } = getMonthYear();
-  const monthLabel = `${getMonthName(month)} ${year}`;
-  const keys = trendMonthsBack(month, year, 6);
+  const today = getGymToday();
+  const calendar = { month: today.month, year: today.year };
+  const previous = lastCompletableMonth(calendar);
+  const calendarLabel = formatMonthYear(calendar.month, calendar.year);
+  const booksLabel = formatMonthYear(previous.month, previous.year);
+  const keys = trendMonthsBack(calendar.month, calendar.year, 6);
   const rangeStart = getMonthBounds(keys[0].month, keys[0].year).start;
   const rangeEnd = getMonthBounds(keys[keys.length - 1].month, keys[keys.length - 1].year).end;
 
-  const [stats, clients, payments, payroll, monthPt] = await Promise.all([
+  const [stats, clients, payments, latestPayroll, lastMonthPt, monthPt] = await Promise.all([
     getTrainerDashboardStats(employeeId),
     prisma.client.findMany({
       where: { trainerId: employeeId },
@@ -595,11 +800,13 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
       select: { amount: true, trainerShareAmount: true, collectedAt: true, paidAt: true },
     }),
     prisma.payrollRun.findFirst({
-      where: { employeeId, month, year },
+      where: { employeeId },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
     }),
-    getTrainerMonthlyPtRevenue(employeeId, month, year),
+    getTrainerMonthlyPtRevenue(employeeId, previous.month, previous.year),
+    getTrainerMonthlyPtRevenue(employeeId, calendar.month, calendar.year),
   ]);
-  const split = await resolveSplitForMonth(employeeId, month, year, monthPt);
+  const split = await resolveSplitForMonth(employeeId, calendar.month, calendar.year, monthPt);
 
   const buckets = new Map(keys.map((key) => [`${key.year}-${key.month}`, { earnings: 0, ptRevenue: 0 }]));
   for (const payment of payments) {
@@ -611,6 +818,7 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
     bucket.ptRevenue += decimalToNumber(payment.amount);
   }
 
+  const lastMonthEarnings = buckets.get(`${previous.year}-${previous.month}`)?.earnings ?? 0;
   const now = new Date();
   let active = 0;
   let expiring = 0;
@@ -663,22 +871,23 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
       href: "/trainer/schedule",
     },
     {
-      title: "Open slots",
-      value: String(stats.openSlots),
-      subtitle: "Upcoming empty slots",
-      href: "/trainer/schedule",
-    },
-    {
-      title: "Your share (MTD)",
-      value: formatInr(stats.monthlyEarnings),
-      subtitle: `PT collected ${formatInr(monthPt)}`,
+      title: `Your share · ${shortMonthLabel(previous.month, previous.year)}`,
+      value: formatInr(lastMonthEarnings),
+      subtitle: `PT collected ${formatInr(lastMonthPt)}`,
       href: "/trainer/earnings",
       highlight: true,
+    },
+    {
+      title: "This month so far",
+      value: formatInr(stats.monthlyEarnings),
+      subtitle: `${calendarLabel} · PT ${formatInr(monthPt)}`,
+      href: "/trainer/earnings",
     },
   ];
 
   return {
-    monthLabel,
+    booksLabel,
+    calendarLabel,
     trainerName: employee.user.name,
     kpis,
     alerts,
@@ -688,6 +897,7 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
       monthlyTarget: split.monthlyTarget,
       ptRevenue: monthPt,
       splitPercent: split.splitPercent,
+      label: `${calendarLabel} target`,
     },
     earningsTrend: keys.map((key) => {
       const bucket = buckets.get(`${key.year}-${key.month}`) ?? { earnings: 0, ptRevenue: 0 };
@@ -708,8 +918,12 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
       clientId: sub.clientId,
       clientName: sub.client.name,
     })),
-    payroll: payroll
-      ? { status: payroll.status, netPay: decimalToNumber(payroll.netPay) }
+    payroll: latestPayroll
+      ? {
+          status: latestPayroll.status,
+          netPay: decimalToNumber(latestPayroll.netPay),
+          monthLabel: formatMonthYear(latestPayroll.month, latestPayroll.year),
+        }
       : null,
   };
 }

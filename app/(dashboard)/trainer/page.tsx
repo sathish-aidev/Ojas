@@ -10,6 +10,7 @@ import {
   HomeAlerts,
   HomeHeader,
   HomeListCard,
+  HomeSection,
   QuickLinks,
   TargetMeter,
 } from "@/components/dashboard/home-sections";
@@ -29,10 +30,10 @@ export default async function TrainerDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <HomeHeader
         title="Home"
-        subtitle={`${home.monthLabel} — today's sessions and your numbers.`}
+        subtitle={`Today's sessions, last month (${home.booksLabel}), and ${home.calendarLabel} so far.`}
         actions={
           <Button asChild size="lg" className="min-h-11">
             <Link href="/trainer/clients/new">+ Add Client</Link>
@@ -44,40 +45,42 @@ export default async function TrainerDashboardPage() {
 
       {home.target?.hasTarget && home.target.monthlyTarget ? (
         <TargetMeter
-          label={`${home.target.splitPercent}% split · monthly target`}
+          label={`${home.target.splitPercent}% split · ${home.target.label}`}
           current={home.target.ptRevenue}
           target={home.target.monthlyTarget}
           met={home.target.targetMet}
         />
       ) : null}
 
-      <HomeListCard
-        title="Today's sessions"
-        href="/trainer/schedule"
-        hrefLabel="Schedule"
-        empty="No active clients with PT running. Expired clients appear under All Clients."
-        isEmpty={home.todaySchedule.length === 0}
-      >
-        {home.todaySchedule.map((row) => (
-          <Link
-            key={row.clientId}
-            href={`/trainer/clients/${row.clientId}`}
-            className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50"
-          >
-            <div>
-              <p className="font-medium">{row.clientName}</p>
-              <p className="text-sm text-muted-foreground">
-                {row.hasSlot && row.startAt
-                  ? `${formatTime(row.startAt)}${row.endAt ? ` – ${formatTime(row.endAt)}` : ""}`
-                  : "No time slot assigned today"}
-              </p>
-            </div>
-            <Badge variant={row.hasSlot ? "default" : "secondary"}>
-              {row.hasSlot ? "Scheduled" : "Unscheduled"}
-            </Badge>
-          </Link>
-        ))}
-      </HomeListCard>
+      <HomeSection title="Today">
+        <HomeListCard
+          title="Today's sessions"
+          href="/trainer/schedule"
+          hrefLabel="Schedule"
+          empty="No active clients with PT running. Expired clients appear under All Clients."
+          isEmpty={home.todaySchedule.length === 0}
+        >
+          {home.todaySchedule.map((row) => (
+            <Link
+              key={row.clientId}
+              href={`/trainer/clients/${row.clientId}`}
+              className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50"
+            >
+              <div>
+                <p className="font-medium">{row.clientName}</p>
+                <p className="text-sm text-muted-foreground">
+                  {row.hasSlot && row.startAt
+                    ? `${formatTime(row.startAt)}${row.endAt ? ` – ${formatTime(row.endAt)}` : ""}`
+                    : "No time slot assigned today"}
+                </p>
+              </div>
+              <Badge variant={row.hasSlot ? "default" : "secondary"}>
+                {row.hasSlot ? "Scheduled" : "Unscheduled"}
+              </Badge>
+            </Link>
+          ))}
+        </HomeListCard>
+      </HomeSection>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <EarningsTrendChart data={home.earningsTrend} />
@@ -101,11 +104,11 @@ export default async function TrainerDashboardPage() {
           ))}
         </HomeListCard>
 
-        <HomeListCard title="Payroll this month" href="/trainer/earnings" hrefLabel="Earnings">
+        <HomeListCard title="Latest payroll" href="/trainer/earnings" hrefLabel="Earnings">
           {home.payroll ? (
             <AmountRow
               title={home.payroll.status === "PAID" ? "Paid" : "Generated, unpaid"}
-              subtitle={home.monthLabel}
+              subtitle={home.payroll.monthLabel}
               amount={home.payroll.netPay}
               badge={{
                 label: home.payroll.status,
@@ -113,7 +116,7 @@ export default async function TrainerDashboardPage() {
               }}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">Payroll has not been generated for {home.monthLabel} yet.</p>
+            <p className="text-sm text-muted-foreground">No payroll has been generated yet.</p>
           )}
         </HomeListCard>
       </div>

@@ -70,10 +70,10 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
-export function OwnerPnlChart({ data }: { data: TrendPoint[] }) {
+export function OwnerPnlChart({ data, subtitle }: { data: TrendPoint[]; subtitle?: string }) {
   const hasData = data.some((row) => row.grossIncome !== 0 || row.totalCosts !== 0 || row.ptRevenue !== 0);
   return (
-    <ChartCard title="Income and net" subtitle="Cult after TDS + PT vs net result" height={320}>
+    <ChartCard title="Income and net" subtitle={subtitle ?? "Cult after TDS + PT vs net result"} height={320}>
       {!hasData ? (
         <EmptyChart message="No revenue figures yet. Enter Cult settlement and PT to see the trend." />
       ) : (
@@ -194,6 +194,37 @@ export function CountDonutChart({
             <Tooltip />
             <Legend />
           </PieChart>
+        </ResponsiveContainer>
+      )}
+    </ChartCard>
+  );
+}
+
+export function ExpenseBarChart({
+  title,
+  subtitle,
+  data,
+  empty = "No bills in the closed month.",
+}: {
+  title: string;
+  subtitle?: string;
+  data: NamedAmount[];
+  empty?: string;
+}) {
+  const hasData = data.some((row) => row.value > 0);
+  return (
+    <ChartCard title={title} subtitle={subtitle}>
+      {!hasData ? (
+        <EmptyChart message={empty} />
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+            <XAxis type="number" tickFormatter={compactInr} tick={{ fontSize: 11 }} />
+            <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
+            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Bar dataKey="value" name="Amount" fill="hsl(var(--chart-5))" radius={[0, 6, 6, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       )}
     </ChartCard>

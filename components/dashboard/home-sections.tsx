@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import type { HomeAlert } from "@/lib/services/home-overview";
+import type { CompareRow, HomeAlert, YtdTotals } from "@/lib/services/home-overview";
 
 export function HomeHeader({
   title,
@@ -24,6 +24,128 @@ export function HomeHeader({
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
+  );
+}
+
+export function HomeSection({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function MonthCompareTable({
+  booksLabel,
+  priorLabel,
+  rows,
+}: {
+  booksLabel: string;
+  priorLabel: string;
+  rows: CompareRow[];
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Closed month vs prior</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {booksLabel} compared with {priorLabel}
+        </p>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-muted-foreground">
+              <th className="py-2 pr-3 font-medium">Line</th>
+              <th className="py-2 pr-3 text-right font-medium">{priorLabel}</th>
+              <th className="py-2 pr-3 text-right font-medium">{booksLabel}</th>
+              <th className="py-2 text-right font-medium">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const delta =
+                row.prior == null || row.prior === 0
+                  ? row.books === 0
+                    ? 0
+                    : null
+                  : ((row.books - row.prior) / Math.abs(row.prior)) * 100;
+              const up = delta != null && delta > 0.5;
+              const down = delta != null && delta < -0.5;
+              const invert = row.label === "Gym bills" || row.label === "Payroll paid";
+              const deltaClass = invert
+                ? up
+                  ? "text-red-600"
+                  : down
+                    ? "text-emerald-600"
+                    : "text-muted-foreground"
+                : up
+                  ? "text-emerald-600"
+                  : down
+                    ? "text-red-600"
+                    : "text-muted-foreground";
+              return (
+                <tr key={row.label} className="border-b last:border-0">
+                  <td className="py-2.5 pr-3 font-medium">{row.label}</td>
+                  <td className="py-2.5 pr-3 text-right text-muted-foreground">
+                    {row.prior == null ? "—" : formatCurrency(row.prior)}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right">{formatCurrency(row.books)}</td>
+                  <td className={`py-2.5 text-right ${deltaClass}`}>
+                    {delta == null ? "—" : `${delta > 0 ? "+" : ""}${Math.round(delta)}%`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function YtdStrip({ ytd }: { ytd: YtdTotals }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Year to date</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          {ytd.year} through {ytd.throughLabel} closed books
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Gross income</p>
+          <p className="text-xl font-semibold">{formatCurrency(ytd.grossIncome)}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total PT</p>
+          <p className="text-xl font-semibold">{formatCurrency(ytd.ptRevenue)}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Costs</p>
+          <p className="text-xl font-semibold">{formatCurrency(ytd.totalCosts)}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Net</p>
+          <p className={`text-xl font-semibold ${ytd.netResult >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+            {formatCurrency(ytd.netResult)}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -168,7 +290,7 @@ export function TargetMeter({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground">{met ? "Target met this month" : `${pct}% of monthly target`}</p>
+        <p className="text-xs text-muted-foreground">{met ? "Target met" : `${pct}% of monthly target`}</p>
       </CardContent>
     </Card>
   );
