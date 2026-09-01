@@ -42,7 +42,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       ];
     case "TRAINER":
       return [
-        { href: "/trainer", label: "Today", icon: LayoutDashboard },
+        { href: "/trainer", label: "Home", icon: LayoutDashboard },
         { href: "/trainer/clients", label: "Clients", icon: Users },
         { href: "/trainer/clients/new", label: "Add", icon: UserCircle },
         { href: "/trainer/schedule", label: "Schedule", icon: Calendar },

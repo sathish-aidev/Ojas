@@ -121,6 +121,7 @@ export async function flattenTrainerTabTables(tabName: string): Promise<number> 
   const tables = ((sheet as { tables?: SheetTable[] }).tables ?? []).filter(
     (t): t is { tableId: string } => !!t.tableId
   );
+  if (tables.length === 0) return 0;
 
   const escaped = tabName.replace(/'/g, "''");
   let saved: string[][] = [];

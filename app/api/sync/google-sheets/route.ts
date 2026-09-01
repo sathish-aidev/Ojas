@@ -15,6 +15,7 @@ export async function POST(request: Request) {
     const result = await syncAllTrainerTabs(user.gymId, {
       triggeredBy: user.id,
       source: body.source === "DAILY" ? "DAILY" : "MANUAL",
+      skipExport: true,
     });
     return ok(result);
   } catch (err) {

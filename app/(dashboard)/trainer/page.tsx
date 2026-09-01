@@ -1,11 +1,21 @@
-import { StatCard } from "@/components/dashboard/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { requireTrainer } from "@/lib/session";
+import { getTrainerHomeOverview } from "@/lib/services/home-overview";
+import { formatTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireTrainer } from "@/lib/session";
-import { getTrainerDashboardStats } from "@/lib/services/pt-tracker";
-import { formatCurrency, formatTime } from "@/lib/utils";
-import Link from "next/link";
+import { KpiGrid } from "@/components/dashboard/kpi-card";
+import {
+  AmountRow,
+  HomeAlerts,
+  HomeHeader,
+  HomeListCard,
+  QuickLinks,
+  TargetMeter,
+} from "@/components/dashboard/home-sections";
+import { CountDonutChart, EarningsTrendChart } from "@/components/dashboard/home-charts";
+
+export const dynamic = "force-dynamic";
 
 export default async function TrainerDashboardPage() {
   const user = await requireTrainer();
@@ -13,83 +23,109 @@ export default async function TrainerDashboardPage() {
     return <p className="text-muted-foreground">Trainer profile not found.</p>;
   }
 
-  const stats = await getTrainerDashboardStats(user.employeeId);
-  const scheduledCount = stats.todaySchedule.filter((r) => r.hasSlot).length;
+  const home = await getTrainerHomeOverview(user.employeeId);
+  if (!home) {
+    return <p className="text-muted-foreground">Trainer profile not found.</p>;
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-          <p className="text-muted-foreground">Active clients and today&apos;s time slots</p>
-        </div>
-        <Button asChild size="lg" className="min-h-11">
-          <Link href="/trainer/clients/new">+ Add Client</Link>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard title="Active Clients" value={stats.clientCount.toString()} />
-        <StatCard title="Scheduled Today" value={scheduledCount.toString()} />
-        <StatCard title="Open Slots" value={stats.openSlots.toString()} />
-        <StatCard title="Earnings (MTD)" value={formatCurrency(stats.monthlyEarnings)} highlight />
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Today&apos;s Sessions</CardTitle>
-          <Button asChild variant="outline" size="sm" className="min-h-10">
-            <Link href="/trainer/schedule">Schedule</Link>
+      <HomeHeader
+        title="Home"
+        subtitle={`${home.monthLabel} — today's sessions and your numbers.`}
+        actions={
+          <Button asChild size="lg" className="min-h-11">
+            <Link href="/trainer/clients/new">+ Add Client</Link>
           </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {stats.todaySchedule.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No active clients with PT running. Expired clients appear under All Clients.
-            </p>
-          ) : (
-            stats.todaySchedule.map((row) => (
-              <Link
-                key={row.clientId}
-                href={`/trainer/clients/${row.clientId}`}
-                className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50"
-              >
-                <div>
-                  <p className="font-medium">{row.clientName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {row.hasSlot && row.startAt
-                      ? `${formatTime(row.startAt)}${row.endAt ? ` – ${formatTime(row.endAt)}` : ""}`
-                      : "No time slot assigned today"}
-                  </p>
-                </div>
-                <Badge variant={row.hasSlot ? "default" : "secondary"}>
-                  {row.hasSlot ? "Scheduled" : "Unscheduled"}
-                </Badge>
-              </Link>
-            ))
-          )}
-        </CardContent>
-      </Card>
+        }
+      />
+      <HomeAlerts alerts={home.alerts} />
+      <KpiGrid items={home.kpis} />
 
-      {stats.expiringClients.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Renewals Due</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.expiringClients.map((sub) => (
-              <Link
-                key={sub.id}
-                href={`/trainer/clients/${sub.clientId}`}
-                className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50"
-              >
-                <p className="font-medium">{sub.client.name}</p>
-                <Badge variant="warning">Renew</Badge>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {home.target?.hasTarget && home.target.monthlyTarget ? (
+        <TargetMeter
+          label={`${home.target.splitPercent}% split · monthly target`}
+          current={home.target.ptRevenue}
+          target={home.target.monthlyTarget}
+          met={home.target.targetMet}
+        />
+      ) : null}
+
+      <HomeListCard
+        title="Today's sessions"
+        href="/trainer/schedule"
+        hrefLabel="Schedule"
+        empty="No active clients with PT running. Expired clients appear under All Clients."
+        isEmpty={home.todaySchedule.length === 0}
+      >
+        {home.todaySchedule.map((row) => (
+          <Link
+            key={row.clientId}
+            href={`/trainer/clients/${row.clientId}`}
+            className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50"
+          >
+            <div>
+              <p className="font-medium">{row.clientName}</p>
+              <p className="text-sm text-muted-foreground">
+                {row.hasSlot && row.startAt
+                  ? `${formatTime(row.startAt)}${row.endAt ? ` – ${formatTime(row.endAt)}` : ""}`
+                  : "No time slot assigned today"}
+              </p>
+            </div>
+            <Badge variant={row.hasSlot ? "default" : "secondary"}>
+              {row.hasSlot ? "Scheduled" : "Unscheduled"}
+            </Badge>
+          </Link>
+        ))}
+      </HomeListCard>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <EarningsTrendChart data={home.earningsTrend} />
+        <CountDonutChart title="Client mix" data={home.clientMix} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <HomeListCard
+          title="Renewals due"
+          href="/trainer/clients"
+          empty="No packs ending this week."
+          isEmpty={home.expiringClients.length === 0}
+        >
+          {home.expiringClients.map((row) => (
+            <AmountRow
+              key={row.id}
+              title={row.clientName}
+              href={`/trainer/clients/${row.clientId}`}
+              badge={{ label: "Renew", variant: "warning" }}
+            />
+          ))}
+        </HomeListCard>
+
+        <HomeListCard title="Payroll this month" href="/trainer/earnings" hrefLabel="Earnings">
+          {home.payroll ? (
+            <AmountRow
+              title={home.payroll.status === "PAID" ? "Paid" : "Generated, unpaid"}
+              subtitle={home.monthLabel}
+              amount={home.payroll.netPay}
+              badge={{
+                label: home.payroll.status,
+                variant: home.payroll.status === "PAID" ? "success" : "warning",
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Payroll has not been generated for {home.monthLabel} yet.</p>
+          )}
+        </HomeListCard>
+      </div>
+
+      <QuickLinks
+        links={[
+          { href: "/trainer/clients/new", label: "Add client", primary: true },
+          { href: "/trainer/schedule", label: "Schedule" },
+          { href: "/trainer/clients", label: "All clients" },
+          { href: "/trainer/earnings", label: "Earnings" },
+        ]}
+      />
     </div>
   );
 }

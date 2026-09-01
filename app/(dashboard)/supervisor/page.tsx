@@ -1,76 +1,121 @@
-import { StatCard } from "@/components/dashboard/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { requireOwnerOrSupervisor } from "@/lib/session";
-import { getOwnerDashboardStats, getTrainerOverview, syncSubscriptionStatuses } from "@/lib/services/pt-tracker";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { syncSubscriptionStatuses } from "@/lib/services/pt-tracker";
+import { getSupervisorHomeOverview } from "@/lib/services/home-overview";
+import { KpiGrid } from "@/components/dashboard/kpi-card";
+import { AmountRow, HomeAlerts, HomeHeader, HomeListCard, QuickLinks } from "@/components/dashboard/home-sections";
+import { DonutChart, SpendTrendChart, TrainerPtBarChart } from "@/components/dashboard/home-charts";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export default async function SupervisorDashboardPage() {
   const user = await requireOwnerOrSupervisor();
   await syncSubscriptionStatuses(user.gymId);
-  const [stats, trainers] = await Promise.all([
-    getOwnerDashboardStats(user.gymId),
-    getTrainerOverview(user.gymId),
-  ]);
+  const home = await getSupervisorHomeOverview(user.gymId);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Supervisor Dashboard</h1>
-        <p className="text-muted-foreground">Operations and renewals overview</p>
+      <HomeHeader
+        title="Home"
+        subtitle={`${home.monthLabel} operations — clients, petty cash, payroll, and renewals.`}
+      />
+      <HomeAlerts alerts={home.alerts} />
+      <KpiGrid items={home.kpis} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TrainerPtBarChart title="PT collected by trainer" data={home.ptByTrainer} />
+        <DonutChart
+          title="Spend this month"
+          data={home.spendMix}
+          empty="No supervisor spends this month."
+        />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
-          <Link href="/supervisor/expenses">Gym expenses</Link>
-        </Button>
-      </div>
+      <SpendTrendChart data={home.spendTrend} />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Trainers" value={stats.trainerCount.toString()} />
-        <StatCard title="Active Clients" value={stats.activeClients.toString()} />
-        <StatCard title="PT Revenue (MTD)" value={formatCurrency(stats.monthlyRevenue)} />
-        <StatCard title="Renewals (7d)" value={stats.renewalsDue.length.toString()} />
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Trainer Overview</CardTitle>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/supervisor/trainers">View trainers</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {trainers.map((t) => (
-            <div key={t.id} className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="font-medium">{t.name}</p>
-                <p className="text-sm text-muted-foreground">{t.clientCount} active clients</p>
-              </div>
-              <p className="font-medium">{formatCurrency(t.monthlyRevenue)}</p>
-            </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <HomeListCard
+          title="Trainer load"
+          href="/supervisor/trainers"
+          hrefLabel="Trainers"
+          empty="No trainers yet."
+          isEmpty={home.ptByTrainer.length === 0}
+        >
+          {home.ptByTrainer.map((trainer) => (
+            <AmountRow
+              key={trainer.name}
+              title={trainer.name}
+              subtitle={`${trainer.clients} active clients`}
+              amount={trainer.ptRevenue}
+            />
           ))}
-        </CardContent>
-      </Card>
+        </HomeListCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Upcoming Renewals</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {stats.renewalsDue.map((r) => (
-            <div key={r.id} className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="font-medium">{r.clientName}</p>
-                <p className="text-sm text-muted-foreground">{r.trainerName}</p>
-              </div>
-              <Badge variant="warning">{formatDate(r.endDate)}</Badge>
-            </div>
+        <HomeListCard
+          title="Renewals this week"
+          href="/supervisor/renewals"
+          empty="No PT packs ending in the next 7 days."
+          isEmpty={home.renewals.length === 0}
+        >
+          {home.renewals.map((row) => (
+            <AmountRow
+              key={row.id}
+              title={row.clientName}
+              subtitle={row.trainerName}
+              badge={{ label: row.endDateLabel, variant: "warning" }}
+            />
           ))}
-        </CardContent>
-      </Card>
+        </HomeListCard>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <HomeListCard
+          title="Payroll this month"
+          href="/supervisor/salaries"
+          hrefLabel="Salaries"
+          empty="No payroll generated for this month."
+          isEmpty={home.payroll.length === 0}
+        >
+          {home.payroll.map((run) => (
+            <AmountRow
+              key={run.id}
+              title={run.name}
+              amount={run.netPay}
+              badge={{
+                label: run.status,
+                variant: run.status === "PAID" ? "success" : "warning",
+              }}
+            />
+          ))}
+        </HomeListCard>
+
+        <HomeListCard
+          title="Recent spends"
+          href="/supervisor/expenses"
+          empty="No spends recorded yet."
+          isEmpty={home.recentSpends.length === 0}
+        >
+          {home.recentSpends.map((row) => (
+            <AmountRow
+              key={row.id}
+              title={row.description || row.category}
+              subtitle={`${row.dateLabel} · ${row.category}`}
+              amount={row.amount}
+            />
+          ))}
+        </HomeListCard>
+      </div>
+
+      <QuickLinks
+        links={[
+          { href: "/supervisor/expenses", label: "Log a spend", primary: true },
+          { href: "/supervisor/clients", label: "Clients" },
+          { href: "/supervisor/renewals", label: "Renewals" },
+          { href: "/supervisor/salaries", label: "Salaries" },
+          { href: "/supervisor/reports", label: "PT reports" },
+          { href: "/supervisor/trainers", label: "Trainers" },
+        ]}
+      />
     </div>
   );
 }

@@ -30,7 +30,7 @@ function getNavItems(role?: UserRole): NavItem[] {
   switch (role) {
     case "OWNER":
       return [
-        { href: "/owner", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/owner", label: "Home", icon: LayoutDashboard },
         { href: "/owner/trainers", label: "Trainers", icon: Users },
         { href: "/owner/clients", label: "Clients", icon: UserCircle },
         { href: "/owner/renewals", label: "Renewals", icon: ClipboardList },
@@ -42,7 +42,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       ];
     case "SUPERVISOR":
       return [
-        { href: "/supervisor", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/supervisor", label: "Home", icon: LayoutDashboard },
         { href: "/supervisor/trainers", label: "Trainers", icon: Users },
         { href: "/supervisor/clients", label: "Clients", icon: UserCircle },
         { href: "/supervisor/renewals", label: "Renewals", icon: ClipboardList },
@@ -52,7 +52,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       ];
     case "TRAINER":
       return [
-        { href: "/trainer", label: "Today", icon: LayoutDashboard },
+        { href: "/trainer", label: "Home", icon: LayoutDashboard },
         { href: "/trainer/clients", label: "Clients", icon: Users },
         { href: "/trainer/schedule", label: "Schedule", icon: Calendar },
         { href: "/trainer/earnings", label: "Earnings", icon: TrendingUp },
