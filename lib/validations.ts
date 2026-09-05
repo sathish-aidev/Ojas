@@ -12,7 +12,13 @@ const optionalPositiveAmount = z.preprocess(
 );
 
 export const loginSchema = z.object({
-  email: z.string().email("Valid email required"),
+  username: z
+    .string()
+    .trim()
+    .min(2, "User ID required")
+    .max(32)
+    .regex(/^[a-zA-Z0-9]+$/, "Use letters and numbers only")
+    .transform((value) => value.toLowerCase()),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -29,7 +35,13 @@ export const changePasswordSchema = z
 
 export const createUserSchema = z.object({
   name: z.string().min(2),
-  email: z.string().email(),
+  username: z
+    .string()
+    .trim()
+    .min(2)
+    .max(32)
+    .regex(/^[a-zA-Z0-9]+$/, "User ID: letters and numbers only")
+    .transform((value) => value.toLowerCase()),
   password: z.string().min(6),
   role: z.enum(["SUPERVISOR", "TRAINER"]),
   employeeType: z.enum(["TRAINER", "MANAGER", "CLEANING"]).optional(),

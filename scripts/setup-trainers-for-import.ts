@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { upsertSplitRulesForTrainer } from "../lib/services/trainer-split-rules";
 import type { CreateSplitRuleInput } from "../lib/services/trainer-split-rules";
+import { suggestedStaffUsername } from "../lib/username";
 
 const prisma = new PrismaClient();
 
@@ -115,6 +116,7 @@ async function main() {
     } else {
       const user = await prisma.user.create({
         data: {
+          username: suggestedStaffUsername({ name: t.name, email: t.email, role: "TRAINER" }),
           email: t.email,
           passwordHash,
           name: t.name,
@@ -142,7 +144,7 @@ async function main() {
     }
   }
 
-  console.log("\nTrainers ready for import. Password: password123");
+  console.log("\nTrainers ready for import. Login IDs: saikaran, rohit, rahul. Password: password123");
 }
 
 main()

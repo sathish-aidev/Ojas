@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/utils";
 import { readApiError } from "@/lib/fetch-api";
 import { DeleteConfirmButton } from "@/components/shared/delete-confirm-button";
 import { TrainerSplitRulesPanel } from "@/components/owner/trainer-split-rules-panel";
+import { slugifyUsername } from "@/lib/username";
 
 export type TrainerRow = {
   id: string;
@@ -46,16 +47,15 @@ export function AddTrainerForm() {
     setSuccess("");
     const form = new FormData(e.currentTarget);
     const name = form.get("name") as string;
-    const emailInput = (form.get("email") as string)?.trim();
-    const email =
-      emailInput || `${name.toLowerCase().replace(/\s+/g, ".")}@impackt.gym`;
+    const usernameInput = (form.get("username") as string)?.trim();
+    const username = usernameInput || slugifyUsername(name);
 
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
-        email,
+        username,
         password: form.get("password") || "password123",
         role: "TRAINER",
         employeeType: "TRAINER",
@@ -85,8 +85,13 @@ export function AddTrainerForm() {
             <Input id="trainer-name" name="name" placeholder="e.g. Rohit" required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="trainer-email">Email (optional)</Label>
-            <Input id="trainer-email" name="email" type="email" placeholder="Auto-generated if blank" />
+            <Label htmlFor="trainer-username">User ID</Label>
+            <Input
+              id="trainer-username"
+              name="username"
+              autoCapitalize="none"
+              placeholder="Auto from name, e.g. rohit"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="trainer-phone">Phone</Label>

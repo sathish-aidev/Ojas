@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CollapsibleFormCard } from "@/components/ui/collapsible-form-card";
 import { readApiError } from "@/lib/fetch-api";
+import { slugifyUsername } from "@/lib/username";
 
 type TrainerOption = { id: string; name: string };
 
@@ -15,6 +16,11 @@ export function CreateUserForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [role, setRole] = useState("TRAINER");
+  const [employeeType, setEmployeeType] = useState("TRAINER");
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameTouched, setUsernameTouched] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,7 +34,7 @@ export function CreateUserForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: form.get("name"),
-        email: form.get("email"),
+        username: form.get("username"),
         password: form.get("password"),
         role: form.get("role"),
         employeeType: form.get("employeeType"),
@@ -48,10 +54,10 @@ export function CreateUserForm() {
     setSuccess("Team member created successfully");
     router.refresh();
     (e.target as HTMLFormElement).reset();
+    setName("");
+    setUsername("");
+    setUsernameTouched(false);
   }
-
-  const [role, setRole] = useState("TRAINER");
-  const [employeeType, setEmployeeType] = useState("TRAINER");
 
   const isHousekeeping = employeeType === "CLEANING";
 
@@ -60,15 +66,39 @@ export function CreateUserForm() {
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" required />
+            <Input
+              id="name"
+              name="name"
+              required
+              value={name}
+              onChange={(e) => {
+                const next = e.target.value;
+                setName(next);
+                if (!usernameTouched) setUsername(slugifyUsername(next));
+              }}
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" required />
+            <Label htmlFor="username">User ID</Label>
+            <Input
+              id="username"
+              name="username"
+              required
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => {
+                setUsernameTouched(true);
+                setUsername(e.target.value);
+              }}
+              placeholder="lokesh"
+            />
+            <p className="text-xs text-muted-foreground">Login ID — letters only, e.g. saikaran</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Temporary Password</Label>
-            <Input id="password" name="password" type="password" minLength={6} required />
+            <Input id="password" name="password" type="password" minLength={6} required defaultValue="password123" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>
@@ -192,7 +222,7 @@ export function CreateClientForm({
   }
 
   return (
-    <CollapsibleFormCard title="New Client" buttonLabel="Add Client" defaultOpen>
+    <CollapsibleFormCard title="Add PT" buttonLabel="Add PT" defaultOpen>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>

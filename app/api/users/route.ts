@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-utils";
 import { canManageUsers } from "@/lib/permissions";
 import { createUserSchema } from "@/lib/validations";
+import { emailForUsername } from "@/lib/username";
 
 export async function GET() {
   const user = await getApiUser();
@@ -40,10 +41,14 @@ export async function POST(request: Request) {
       return badRequest(parsed.error.errors[0]?.message ?? "Invalid input");
     }
 
-    const email = parsed.data.email.toLowerCase().trim();
+    const username = parsed.data.username;
+    const email = emailForUsername(username);
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) return badRequest("Email already in use");
+    const existingUsername = await prisma.user.findUnique({ where: { username } });
+    if (existingUsername) return badRequest("User ID already in use");
+
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) return badRequest("User ID already in use");
 
     const passwordHash = await bcrypt.hash(parsed.data.password, 10);
     const isTrainer = parsed.data.role === "TRAINER";
@@ -54,6 +59,7 @@ export async function POST(request: Request) {
 
     const newUser = await prisma.user.create({
       data: {
+        username,
         email,
         passwordHash,
         name: parsed.data.name.trim(),

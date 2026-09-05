@@ -36,7 +36,7 @@ export default async function TrainerDashboardPage() {
         subtitle={`Today's sessions, last month (${home.booksLabel}), and ${home.calendarLabel} so far.`}
         actions={
           <Button asChild size="lg" className="min-h-11">
-            <Link href="/trainer/clients/new">+ Add Client</Link>
+            <Link href="/trainer/clients/new">+ Add PT</Link>
           </Button>
         }
       />
@@ -123,7 +123,7 @@ export default async function TrainerDashboardPage() {
 
       <QuickLinks
         links={[
-          { href: "/trainer/clients/new", label: "Add client", primary: true },
+          { href: "/trainer/clients/new", label: "Add PT", primary: true },
           { href: "/trainer/schedule", label: "Schedule" },
           { href: "/trainer/clients", label: "All clients" },
           { href: "/trainer/earnings", label: "Earnings" },

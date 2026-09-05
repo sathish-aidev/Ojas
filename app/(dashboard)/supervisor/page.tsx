@@ -36,10 +36,10 @@ export default async function SupervisorDashboardPage() {
         actions={
           <>
             <Button asChild className="min-h-11 w-full sm:w-auto">
-              <Link href="/supervisor/expenses">Log spend</Link>
+              <Link href="/supervisor/expenses">Add expense</Link>
             </Button>
             <Button asChild variant="outline" className="min-h-11 w-full sm:w-auto">
-              <Link href="/supervisor/clients/new">Add client</Link>
+              <Link href="/supervisor/clients/new">Add PT</Link>
             </Button>
           </>
         }
@@ -48,6 +48,12 @@ export default async function SupervisorDashboardPage() {
 
       <HomeSection title="Right now" subtitle={`${home.calendarLabel} — clients, cash, and renewals`}>
         <KpiGrid items={home.liveKpis} />
+        {home.trainerKpis.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">Active PT by trainer</p>
+            <KpiGrid items={home.trainerKpis} />
+          </div>
+        ) : null}
         <div className="grid gap-6 lg:grid-cols-2">
           <HomeListCard
             title="Renewals this week"
@@ -158,8 +164,8 @@ export default async function SupervisorDashboardPage() {
 
       <QuickLinks
         links={[
-          { href: "/supervisor/expenses", label: "Log a spend", primary: true },
-          { href: "/supervisor/clients/new", label: "Add client" },
+          { href: "/supervisor/expenses", label: "Add expense", primary: true },
+          { href: "/supervisor/clients/new", label: "Add PT" },
           { href: "/supervisor/clients", label: "Clients" },
           { href: "/supervisor/renewals", label: "Renewals" },
           { href: home.salariesHref, label: "Salaries" },

@@ -369,7 +369,7 @@ export function ExpensesPanel({
                       ? "Give cash"
                       : isOwner
                         ? "Add gym bill"
-                        : "Add spend"}
+                        : "Add expense"}
               </Button>
               {editingId && (
                 <Button type="button" variant="outline" onClick={resetForm} className="min-h-11">

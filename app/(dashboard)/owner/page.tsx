@@ -88,6 +88,12 @@ export default async function OwnerDashboardPage() {
 
       <HomeSection title="Right now" subtitle={`${home.calendarLabel} operations — not the monthly P&L`}>
         <KpiGrid items={home.liveKpis} />
+        {home.trainerKpis.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">Active PT by trainer</p>
+            <KpiGrid items={home.trainerKpis} />
+          </div>
+        ) : null}
         <div className="grid gap-6 lg:grid-cols-2">
           <HomeListCard
             title="Renewals this week"

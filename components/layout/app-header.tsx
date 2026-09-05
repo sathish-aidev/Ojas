@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppLogo } from "@/components/layout/app-logo";
 import { ROLE_LABELS, canSyncFromSheets, type SessionUser } from "@/lib/permissions";
 import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
+import { ChangePasswordButton } from "@/components/account/change-password-button";
 
 export function AppHeader({ user }: { user?: SessionUser }) {
   const canSync = user ? canSyncFromSheets(user.role) : false;
@@ -22,6 +23,7 @@ export function AppHeader({ user }: { user?: SessionUser }) {
               {user.name} · {ROLE_LABELS[user.role]}
             </p>
           )}
+          {user && <ChangePasswordButton />}
           {user?.role === "OWNER" && (
             <Button asChild variant="ghost" size="sm" className="min-h-11 min-w-11" aria-label="Settings">
               <Link href="/owner/settings">

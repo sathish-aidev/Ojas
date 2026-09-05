@@ -38,7 +38,7 @@ export function TrainerClientsTabs({
           </p>
         </div>
         <Button asChild size="lg" className="min-h-11">
-          <Link href={`${basePath}/new`}>+ Add Client</Link>
+          <Link href={`${basePath}/new`}>+ Add PT</Link>
         </Button>
       </div>
 
@@ -61,7 +61,7 @@ export function TrainerClientsTabs({
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             {showAll
-              ? "No clients yet. Add your first client to get started."
+              ? "No clients yet. Add PT to get started."
               : "No active clients. Check All Clients for inactive or expired members."}
           </CardContent>
         </Card>

@@ -13,8 +13,8 @@ export default async function NewSupervisorClientPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">New Client</h1>
-        <p className="text-muted-foreground">Add a client with PT package and payment details</p>
+        <h1 className="text-2xl font-bold">Add PT</h1>
+        <p className="text-muted-foreground">PT package and payment details</p>
       </div>
       <AddClientWithPTForm
         trainers={trainers.map((t) => ({ id: t.id, name: t.user.name }))}

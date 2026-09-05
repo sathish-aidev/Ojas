@@ -36,7 +36,7 @@ export async function ClientsListView({
         </div>
         {canManage && (
           <Button asChild size="lg" className="min-h-11 w-full sm:w-auto">
-            <Link href={`${basePath}/new`}>+ Add Client</Link>
+            <Link href={`${basePath}/new`}>+ Add PT</Link>
           </Button>
         )}
       </div>
@@ -45,7 +45,7 @@ export async function ClientsListView({
         {clients.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              No clients yet. Add your first client to get started.
+              No clients yet. Add PT to get started.
             </CardContent>
           </Card>
         ) : (

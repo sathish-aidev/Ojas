@@ -44,13 +44,13 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ### Demo Logins (password: `password123`)
 
-| Role       | Email                  |
-|------------|------------------------|
-| Owner      | owner@impackt.gym      |
-| Supervisor | supervisor@impackt.gym |
-| Trainer 1  | trainer1@impackt.gym   |
-| Trainer 2  | trainer2@impackt.gym   |
-| Trainer 3  | trainer3@impackt.gym   |
+| Role       | User ID    |
+|------------|------------|
+| Owner      | owner      |
+| Supervisor | lokesh     |
+| Trainer    | rohit      |
+| Trainer    | rahul      |
+| Trainer    | saikaran   |
 
 ## Modules
 
@@ -66,7 +66,7 @@ Open [http://localhost:3000](http://localhost:3000)
 - Salaries: view and record payments (no rule changes)
 
 ### Trainer
-- Today view with sessions and quick add client
+- Today view with sessions and Add PT
 - Client management (payments, sessions, progress)
 - Day scheduler with open/blocked slots
 - Earnings and payroll history

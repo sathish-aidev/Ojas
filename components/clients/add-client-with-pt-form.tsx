@@ -35,8 +35,8 @@ export function AddClientWithPTForm({
   trainers,
   defaultTrainerId,
   redirectTo,
-  title = "Add Client & PT Payment",
-  submitLabel = "Add Client & PT Package",
+  title = "Add PT",
+  submitLabel = "Save PT package",
   showSuccessOnDashboard = false,
   alwaysOpen = false,
 }: AddClientWithPTFormProps) {
@@ -90,7 +90,7 @@ export function AddClientWithPTForm({
 
     setLoading(false);
     if (!res.ok) {
-      setError(await readApiError(res, "Failed to add client"));
+      setError(await readApiError(res, "Failed to add PT"));
       return;
     }
 
@@ -271,7 +271,7 @@ export function AddClientWithPTForm({
       <CardContent>{formBody}</CardContent>
     </Card>
   ) : (
-    <CollapsibleFormCard title={title} buttonLabel="Add Client">
+    <CollapsibleFormCard title={title} buttonLabel="Add PT">
       {formBody}
     </CollapsibleFormCard>
   );

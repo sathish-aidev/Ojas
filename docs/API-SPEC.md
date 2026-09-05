@@ -19,6 +19,7 @@ Auth: Session cookie (NextAuth JWT)
 |--------|------|------|----------|
 | GET | `/users` | — | User[] with employee |
 | POST | `/users` | createUserSchema | User 201 |
+| POST | `/account/password` | changePasswordSchema | `{ success }` |
 | PATCH | `/users/[id]` | `{ action: "reset-password", password }` | `{ success }` |
 | PATCH | `/users/[id]` | `{ action: "toggle-active" }` | `{ success }` |
 | PATCH | `/users/[id]` | employeeUpdateSchema | `{ success }` |

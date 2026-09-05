@@ -57,7 +57,7 @@ export function KpiGrid({ items }: { items: HomeKpi[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {items.map((item) => (
-        <KpiCard key={item.title} {...item} />
+        <KpiCard key={item.id ?? item.title} {...item} />
       ))}
     </div>
   );

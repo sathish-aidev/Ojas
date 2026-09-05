@@ -34,7 +34,8 @@ Gym 1──* GymExpense
 | Field | Type | Notes |
 |-------|------|-------|
 | id | cuid | PK |
-| email | string | Unique |
+| username | string | Unique login ID (e.g. lokesh) |
+| email | string | Unique, internal only |
 | passwordHash | string | bcrypt |
 | name | string | |
 | role | enum | OWNER, SUPERVISOR, TRAINER |

@@ -33,6 +33,7 @@ async function main() {
 
   await prisma.user.create({
     data: {
+      username: "owner",
       email: "owner@impackt.gym",
       passwordHash,
       name: "Gym Owner",
@@ -46,7 +47,8 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      email: "supervisor@impackt.gym",
+      username: "lokesh",
+      email: "lokesh@impackt.gym",
       passwordHash,
       name: "Lokesh",
       role: "SUPERVISOR",
@@ -60,6 +62,7 @@ async function main() {
   const trainerData = [
     {
       name: "Rohit",
+      username: "rohit",
       email: "rohit@impackt.gym",
       monthlyTarget: 60000,
       below: 40,
@@ -68,6 +71,7 @@ async function main() {
     },
     {
       name: "Trainer Two",
+      username: "trainertwo",
       email: "trainer2@impackt.gym",
       monthlyTarget: 50000,
       below: 40,
@@ -76,6 +80,7 @@ async function main() {
     },
     {
       name: "Trainer Three",
+      username: "trainerthree",
       email: "trainer3@impackt.gym",
       monthlyTarget: 55000,
       below: 45,
@@ -87,6 +92,7 @@ async function main() {
   for (const t of trainerData) {
     await prisma.user.create({
       data: {
+        username: t.username,
         email: t.email,
         passwordHash,
         name: t.name,
@@ -109,8 +115,9 @@ async function main() {
 
   console.log("Seed complete (no clients — start fresh from owner dashboard).");
   console.log("Password for all: password123");
-  console.log("  Owner: owner@impackt.gym");
-  console.log("  Rohit: rohit@impackt.gym (target ₹60k, 40%/45% split)");
+  console.log("  Owner: owner");
+  console.log("  Supervisor: lokesh");
+  console.log("  Rohit: rohit (target ₹60k, 40%/45% split)");
 }
 
 main()

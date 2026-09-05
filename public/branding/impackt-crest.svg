@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none" role="img" aria-label="Impackt Fitness Studio">
+  <title>Impackt Fitness Studio</title>
+  <defs>
+    <path
+      id="crest-shield"
+      d="M200 14C112 22 74 42 66 70L54 90V156C54 186 108 228 200 286C292 228 346 186 346 156V90L334 70C326 42 288 22 200 14Z"
+    />
+    <clipPath id="crest-clip">
+      <use href="#crest-shield" />
+    </clipPath>
+  </defs>
+
+  <use href="#crest-shield" fill="#FFFFFF" />
+  <g clip-path="url(#crest-clip)">
+    <path d="M54 14H346V96H54Z" fill="#F15A22" />
+    <g fill="#FFFFFF">
+      <path transform="translate(118 52)" d="M0-12L3.4-3.7H12L5.3 1.4L8 10L0 4.6L-8 10L-5.3 1.4L-12-3.7H-3.4Z" />
+      <path transform="translate(282 52)" d="M0-12L3.4-3.7H12L5.3 1.4L8 10L0 4.6L-8 10L-5.3 1.4L-12-3.7H-3.4Z" />
+    </g>
+    <path d="M70 104H330" stroke="#F15A22" stroke-width="3.5" stroke-linecap="square" />
+    <path d="M78 114H322" stroke="#F15A22" stroke-width="2" stroke-linecap="square" />
+  </g>
+
+  <use href="#crest-shield" fill="none" stroke="#F15A22" stroke-width="10" stroke-linejoin="round" />
+
+  <text
+    x="200"
+    y="178"
+    text-anchor="middle"
+    fill="#141414"
+    font-family="Impact, 'Arial Black', 'Franklin Gothic Heavy', sans-serif"
+    font-size="46"
+    font-weight="800"
+    letter-spacing="3"
+  >IMPACKT</text>
+  <text
+    x="200"
+    y="214"
+    text-anchor="middle"
+    fill="#141414"
+    font-family="Arial, 'Helvetica Neue', Helvetica, sans-serif"
+    font-size="16"
+    font-weight="700"
+    letter-spacing="4.5"
+  >FITNESS STUDI<tspan dx="-1">O</tspan></text>
+  <line x1="268" y1="208" x2="284" y2="208" stroke="#141414" stroke-width="2.2" stroke-linecap="square" />
+</svg>

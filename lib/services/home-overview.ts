@@ -40,6 +40,7 @@ export type HomeAlert = {
 };
 
 export type HomeKpi = {
+  id?: string;
   title: string;
   value: string;
   subtitle?: string;
@@ -87,6 +88,7 @@ export type OwnerHomeOverview = {
   booksHref: string;
   closedKpis: HomeKpi[];
   liveKpis: HomeKpi[];
+  trainerKpis: HomeKpi[];
   alerts: HomeAlert[];
   compare: { booksLabel: string; priorLabel: string; rows: CompareRow[] } | null;
   ytd: YtdTotals;
@@ -137,6 +139,7 @@ export type SupervisorHomeOverview = {
   expensesHref: string;
   closedKpis: HomeKpi[];
   liveKpis: HomeKpi[];
+  trainerKpis: HomeKpi[];
   alerts: HomeAlert[];
   compare: { booksLabel: string; priorLabel: string; rows: CompareRow[] } | null;
   ptByTrainer: Array<{ name: string; clients: number; ptRevenue: number }>;
@@ -282,7 +285,7 @@ async function getOperationalSnapshot(gymId: string) {
   const in7 = addDays(startToday, 7);
   const in30 = addDays(startToday, 30);
 
-  const [trainerCount, totalClients, activePtClients, renewals7Count, renewals30Count, renewals] =
+  const [trainerCount, totalClients, activePtClients, renewals7Count, renewals30Count, renewals, trainerRows, activeByTrainer] =
     await Promise.all([
       prisma.employee.count({ where: { gymId, employeeType: "TRAINER" } }),
       prisma.client.count({ where: { gymId } }),
@@ -321,12 +324,38 @@ async function getOperationalSnapshot(gymId: string) {
         orderBy: { endDate: "asc" },
         take: 8,
       }),
+      prisma.employee.findMany({
+        where: { gymId, employeeType: "TRAINER" },
+        include: { user: true, _count: { select: { clients: true } } },
+        orderBy: { user: { name: "asc" } },
+      }),
+      prisma.client.groupBy({
+        by: ["trainerId"],
+        where: {
+          gymId,
+          subscriptions: {
+            some: {
+              status: { in: ["ACTIVE", "EXPIRING"] },
+              endDate: { gte: startToday },
+            },
+          },
+        },
+        _count: { _all: true },
+      }),
     ]);
+
+  const activeCountByTrainer = new Map(activeByTrainer.map((row) => [row.trainerId, row._count._all]));
 
   return {
     trainerCount,
     totalClients,
     activePtClients,
+    trainers: trainerRows.map((trainer) => ({
+      id: trainer.id,
+      name: trainer.user.name,
+      activePtClients: activeCountByTrainer.get(trainer.id) ?? 0,
+      totalClients: trainer._count.clients,
+    })),
     renewals7Count,
     renewals30Count,
     renewals: renewals.map((sub) => ({
@@ -337,6 +366,19 @@ async function getOperationalSnapshot(gymId: string) {
       endDateLabel: formatDate(sub.endDate),
     })),
   };
+}
+
+function trainerActiveKpis(
+  trainers: Array<{ id: string; name: string; activePtClients: number; totalClients: number }>,
+  clientsHref: string
+): HomeKpi[] {
+  return trainers.map((trainer) => ({
+    id: `trainer-pt-${trainer.id}`,
+    title: trainer.name,
+    value: String(trainer.activePtClients),
+    subtitle: `${trainer.totalClients} ${trainer.totalClients === 1 ? "client" : "clients"}`,
+    href: clientsHref,
+  }));
 }
 
 function payrollRows(
@@ -520,13 +562,6 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       subtitle: `${calendarLabel} collections`,
       href: monthHref("/owner/reports", calendar.month, calendar.year),
     },
-    {
-      title: "Petty cash left",
-      value: formatInr(expenseDash.pettyRemaining),
-      subtitle: `Issued ${formatInr(expenseDash.pettyIssuedAll)} · Spent ${formatInr(expenseDash.pettySpentAll)}`,
-      href: "/owner/expenses",
-      tone: expenseDash.pettyRemaining < 0 ? "negative" : "default",
-    },
   ];
 
   const priorKey = shiftMonth(books.month, books.year, -1);
@@ -558,6 +593,7 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
     booksHref,
     closedKpis,
     liveKpis,
+    trainerKpis: trainerActiveKpis(ops.trainers, "/owner/clients"),
     alerts,
     compare,
     ytd: ytdFromTrend(booksTrend, books),
@@ -731,14 +767,6 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
       tone: ops.renewals7Count > 0 ? "warning" : "default",
     },
     {
-      title: "Petty cash left",
-      value: formatInr(liveExpenses.pettyRemaining),
-      subtitle: `Issued ${formatInr(liveExpenses.pettyIssuedAll)} · Spent ${formatInr(liveExpenses.pettySpentAll)}`,
-      href: liveExpensesHref,
-      highlight: true,
-      tone: liveExpenses.pettyRemaining < 0 ? "negative" : liveExpenses.pettyRemaining === 0 ? "default" : "positive",
-    },
-    {
       title: "Spent this month so far",
       value: formatInr(liveExpenses.pettySpentMonth),
       subtitle: calendarLabel,
@@ -799,6 +827,7 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
     expensesHref,
     closedKpis,
     liveKpis,
+    trainerKpis: trainerActiveKpis(ops.trainers, "/supervisor/clients"),
     alerts,
     compare,
     ptByTrainer: trainers.map((trainer) => ({

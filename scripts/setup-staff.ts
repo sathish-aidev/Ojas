@@ -4,11 +4,11 @@
  */
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma";
+import { emailForUsername, suggestedStaffUsername } from "../lib/username";
 
 async function ensureHousekeeping(
   gymId: string,
   name: string,
-  email: string,
   baseSalary: number
 ) {
   const existing = await prisma.user.findFirst({
@@ -19,10 +19,12 @@ async function ensureHousekeeping(
     return;
   }
 
+  const username = suggestedStaffUsername({ name });
   const passwordHash = await bcrypt.hash("password123", 10);
   await prisma.user.create({
     data: {
-      email,
+      username,
+      email: emailForUsername(username),
       passwordHash,
       name,
       role: "TRAINER",
@@ -60,8 +62,8 @@ async function main() {
   }
 
   console.log("Housekeeping staff:");
-  await ensureHousekeeping(gym.id, "Yashoda", "yashoda@impackt.gym", 12000);
-  await ensureHousekeeping(gym.id, "Rama", "rama@impackt.gym", 12000);
+  await ensureHousekeeping(gym.id, "Yashoda", 12000);
+  await ensureHousekeeping(gym.id, "Rama", 12000);
 
   console.log("\nDone.");
 }
