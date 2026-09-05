@@ -118,3 +118,8 @@ export function formatCloseByLabel(due: YearMonth) {
   const name = new Date(2000, close.month - 1, 1).toLocaleString("en-IN", { month: "long" });
   return `${close.day} ${name}`;
 }
+
+/** Default month for salaries/reports when the URL has no month — last month that can already be closed. */
+export function defaultClosedViewMonth(now = new Date()): YearMonth {
+  return lastCompletableMonth(getGymToday(now));
+}

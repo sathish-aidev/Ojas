@@ -26,7 +26,7 @@ export function KpiCard({ title, value, subtitle, href, deltaPct, deltaInvert, h
   const body = (
     <div
       className={cn(
-        "rounded-xl border bg-card p-5 shadow-sm",
+        "rounded-xl border bg-card p-4 shadow-sm sm:p-5",
         highlight && "border-primary/30 bg-primary/5",
         href && "transition-colors hover:border-primary/40 hover:bg-muted/40"
       )}
@@ -40,7 +40,7 @@ export function KpiCard({ title, value, subtitle, href, deltaPct, deltaInvert, h
           </p>
         ) : null}
       </div>
-      <p className={cn("mt-1 text-2xl font-bold tracking-tight", toneValueClass(tone))}>{value}</p>
+      <p className={cn("mt-1 text-xl font-bold tracking-tight sm:text-2xl", toneValueClass(tone))}>{value}</p>
       {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
     </div>
   );
@@ -55,7 +55,7 @@ export function KpiCard({ title, value, subtitle, href, deltaPct, deltaInvert, h
 
 export function KpiGrid({ items }: { items: HomeKpi[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       {items.map((item) => (
         <KpiCard key={item.title} {...item} />
       ))}

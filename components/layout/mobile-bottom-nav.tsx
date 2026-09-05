@@ -9,7 +9,7 @@ import {
   DollarSign,
   UserCircle,
   TrendingUp,
-  FileBarChart,
+  ClipboardList,
   Wallet,
   Receipt,
 } from "lucide-react";
@@ -36,8 +36,8 @@ function getNavItems(role?: UserRole): NavItem[] {
       return [
         { href: "/supervisor", label: "Home", icon: LayoutDashboard },
         { href: "/supervisor/clients", label: "Clients", icon: UserCircle },
-        { href: "/supervisor/expenses", label: "Expenses", icon: Receipt },
-        { href: "/supervisor/reports", label: "Reports", icon: FileBarChart },
+        { href: "/supervisor/expenses", label: "Spend", icon: Receipt },
+        { href: "/supervisor/renewals", label: "Renew", icon: ClipboardList },
         { href: "/supervisor/salaries", label: "Pay", icon: DollarSign },
       ];
     case "TRAINER":

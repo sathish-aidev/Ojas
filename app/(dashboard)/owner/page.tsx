@@ -98,6 +98,7 @@ export default async function OwnerDashboardPage() {
             {home.renewals.map((row) => (
               <AmountRow
                 key={row.id}
+                href={`/owner/clients/${row.clientId}`}
                 title={row.clientName}
                 subtitle={row.trainerName}
                 badge={{ label: row.endDateLabel, variant: "warning" }}

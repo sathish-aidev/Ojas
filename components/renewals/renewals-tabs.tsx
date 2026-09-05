@@ -1,19 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatCurrency, decimalToNumber } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { formatDate, formatCurrency } from "@/lib/utils";
 
 type RenewalItem = {
   id: string;
   startDate: Date | string;
   endDate: Date | string;
-  amount: { toString(): string };
+  amount: number;
   client: {
+    id: string;
     name: string;
     phone: string | null;
-    trainer: { user: { name: string } };
   };
 };
 
@@ -23,10 +25,12 @@ export function RenewalsTabs({
   trainers,
   renewalsByTrainer,
   selectedTrainerId,
+  clientsBasePath,
 }: {
   trainers: TrainerTab[];
   renewalsByTrainer: Record<string, RenewalItem[]>;
   selectedTrainerId: string;
+  clientsBasePath: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,7 +56,7 @@ export function RenewalsTabs({
               key={trainer.id}
               type="button"
               onClick={() => selectTrainer(trainer.id)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
                 active
                   ? "border-primary bg-primary text-primary-foreground"
                   : "bg-background hover:bg-muted"
@@ -79,14 +83,28 @@ export function RenewalsTabs({
         ) : (
           activeRenewals.map((sub) => (
             <Card key={sub.id}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg">{sub.client.name}</CardTitle>
-                <Badge variant="warning">{formatDate(sub.endDate)}</Badge>
+              <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-lg leading-tight">{sub.client.name}</CardTitle>
+                <Badge variant="warning" className="w-fit">
+                  {formatDate(sub.endDate)}
+                </Badge>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                <p>Renewed: {formatDate(sub.startDate)}</p>
-                <p>Amount: {formatCurrency(decimalToNumber(sub.amount))}</p>
-                <p>Phone: {sub.client.phone ?? "—"}</p>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>Pack started {formatDate(sub.startDate)}</p>
+                <p>Amount: {formatCurrency(sub.amount)}</p>
+                {sub.client.phone ? (
+                  <p>
+                    Phone:{" "}
+                    <a className="text-foreground underline" href={`tel:${sub.client.phone}`}>
+                      {sub.client.phone}
+                    </a>
+                  </p>
+                ) : (
+                  <p>Phone: —</p>
+                )}
+                <Button asChild className="min-h-11 w-full sm:w-auto">
+                  <Link href={`${clientsBasePath}/${sub.client.id}`}>Log renewal</Link>
+                </Button>
               </CardContent>
             </Card>
           ))

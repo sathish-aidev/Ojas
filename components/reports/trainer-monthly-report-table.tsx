@@ -59,7 +59,8 @@ export function TrainerMonthlyReportTable({
           : `Lists all clients active this month. Split % applies to every active PT based on whether collections in ${getMonthName(period.month)} ${period.year} met the target. This Month Revenue shows cash collected this month; Paid On is when the client actually paid.`}
       </p>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border -mx-1">
+        <p className="px-3 pt-2 text-xs text-muted-foreground md:hidden">Swipe sideways for all columns</p>
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b bg-muted/50 text-left">

@@ -56,7 +56,7 @@ export function canViewAllTrainers(role: UserRole) {
 }
 
 export function canManageClients(role: UserRole) {
-  return role === "OWNER" || role === "TRAINER";
+  return role === "OWNER" || role === "SUPERVISOR" || role === "TRAINER";
 }
 
 export function canViewClient(role: UserRole, trainerEmployeeId: string, userEmployeeId?: string) {

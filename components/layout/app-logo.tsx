@@ -30,7 +30,7 @@ export function AppLogo({ size = "md", variant = "inline", className }: AppLogoP
   }
 
   return (
-    <div className={cn("flex items-center gap-2.5", className)}>
+    <div className={cn("flex items-center gap-2.5", className)} aria-label={APP_NAME}>
       <Image
         src="/branding/logo.png"
         alt=""
@@ -44,7 +44,7 @@ export function AppLogo({ size = "md", variant = "inline", className }: AppLogoP
       <span
         className={cn(
           "font-semibold tracking-tight text-foreground",
-          size === "sm" ? "text-base" : "text-lg"
+          size === "sm" ? "hidden text-base sm:inline" : "text-lg"
         )}
       >
         {APP_NAME}

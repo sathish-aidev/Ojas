@@ -39,6 +39,7 @@ export function SalariesPanel({
   year,
   canEdit,
   canPay,
+  canGenerate = false,
   canSync = false,
   reportsPath = "/owner/reports",
 }: {
@@ -47,44 +48,50 @@ export function SalariesPanel({
   year: number;
   canEdit: boolean;
   canPay: boolean;
+  canGenerate?: boolean;
   canSync?: boolean;
   reportsPath?: string;
 }) {
   const router = useRouter();
 
-  async function generate() {
-    await fetch("/api/payroll", {
+  async function postPayroll(body: Record<string, unknown>, failed: string) {
+    const res = await fetch("/api/payroll", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "generate", month, year }),
+      body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(typeof data.error === "string" ? data.error : failed);
+      return false;
+    }
     router.refresh();
+    return true;
+  }
+
+  async function generate() {
+    await postPayroll({ action: "generate", month, year }, "Could not generate payroll");
   }
 
   async function markPaid(payrollRunId: string) {
-    await fetch("/api/payroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "pay", payrollRunId }),
-    });
-    router.refresh();
+    await postPayroll({ action: "pay", payrollRunId }, "Could not mark payroll paid");
   }
 
   async function markUnpaid(payrollRunId: string) {
-    await fetch("/api/payroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "unpay", payrollRunId }),
-    });
-    router.refresh();
+    await postPayroll({ action: "unpay", payrollRunId }, "Could not mark payroll unpaid");
   }
 
   async function savePaidAmount(employeeId: string, netPay: number) {
-    await fetch("/api/payroll/salary-override", {
+    const res = await fetch("/api/payroll/salary-override", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employeeId, month, year, netPay }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(typeof data.error === "string" ? data.error : "Could not save paid amount");
+      return;
+    }
     router.refresh();
   }
 
@@ -100,10 +107,10 @@ export function SalariesPanel({
         <div className="flex flex-wrap items-center gap-2">
           {canSync && <SheetSyncActions compact />}
           <Suspense fallback={null}>
-            <MonthYearPicker month={month} year={year} />
+            <MonthYearPicker month={month} year={year} enableShowAll={false} />
           </Suspense>
-          {canEdit && (
-            <Button onClick={generate} className="min-h-11">
+          {(canEdit || canGenerate) && (
+            <Button onClick={generate} className="min-h-11 w-full sm:w-auto">
               Generate Payroll
             </Button>
           )}
@@ -113,7 +120,7 @@ export function SalariesPanel({
       <div className="grid gap-4">
         {overview.map(({ employee, payroll, salaryOverride }) => (
           <Card key={employee.id}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-lg">{employee.user.name}</CardTitle>
                 <p className="text-sm text-muted-foreground">{employee.employeeType}</p>
@@ -150,7 +157,7 @@ export function SalariesPanel({
                       <p className="font-bold">{formatCurrency(payroll.netPay)}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
                     {(canEdit || canPay) && (
                       <StaffSalaryInput
                         key={`${employee.id}-${payroll.netPay}`}
@@ -174,7 +181,7 @@ export function SalariesPanel({
                       </a>
                     </Button>
                     {canPay && payroll.status === "PENDING" && (
-                      <Button size="sm" onClick={() => markPaid(payroll.id)}>
+                      <Button size="sm" className="min-h-11" onClick={() => markPaid(payroll.id)}>
                         Mark Paid
                       </Button>
                     )}
@@ -182,6 +189,7 @@ export function SalariesPanel({
                       <Button
                         size="sm"
                         variant="outline"
+                        className="min-h-11"
                         onClick={() => markUnpaid(payroll.id)}
                       >
                         Mark Unpaid
@@ -236,7 +244,7 @@ function StaffSalaryInput({
   const [value, setValue] = useState(String(defaultValue));
 
   return (
-    <div className={`flex items-center gap-2 ${compact ? "" : "max-w-xs"}`}>
+    <div className={`flex min-w-0 flex-wrap items-center gap-2 ${compact ? "" : "max-w-xs"}`}>
       <span className="text-sm text-muted-foreground whitespace-nowrap">
         {compact ? "Paid (₹)" : "Paid this month (₹)"}
       </span>
@@ -247,7 +255,7 @@ function StaffSalaryInput({
         step="1"
         aria-label="Paid this month"
         title="Amount actually paid (Base + PT share + incentives)"
-        className="min-h-10 w-32"
+        className="min-h-11 w-28 sm:w-32"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
@@ -255,6 +263,7 @@ function StaffSalaryInput({
         type="button"
         size="sm"
         variant="outline"
+        className="min-h-11"
         onClick={() => onSave(Number(value))}
       >
         Save

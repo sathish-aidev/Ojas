@@ -157,7 +157,7 @@ export function ReportsPageContent({
 
         <Card>
 
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
             <CardTitle className="text-lg">
 
@@ -165,7 +165,7 @@ export function ReportsPageContent({
 
             </CardTitle>
 
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="min-h-11 w-full sm:w-auto">
 
               <a href={pdfHref} target="_blank" rel="noreferrer">
 

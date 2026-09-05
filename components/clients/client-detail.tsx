@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatCurrency, decimalToNumber, PAYMENT_MODE_LABELS } from "@/lib/utils";
 import type { SessionUser } from "@/lib/permissions";
-import { canViewClient } from "@/lib/permissions";
+import { canManageClients, canViewClient } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import {
   AddSubscriptionForm,
@@ -44,7 +44,7 @@ export async function ClientDetailView({
 
   const grouped = groupMeasurementsByType(client.measurements);
   const weightGoal = client.goals.find((g) => g.goalType === "WEIGHT_LOSS");
-  const canEdit = user.role === "OWNER" || user.role === "TRAINER";
+  const canEdit = canManageClients(user.role);
   const canDelete = canEdit;
 
   return (

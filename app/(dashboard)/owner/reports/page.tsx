@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getTrainerMonthlyReport, getTrainerAllPtReport } from "@/lib/services/trainer-monthly-report";
 import { parseMonthYearFromSearchParams, parseTrainerIdFromSearchParams, parseShowAllFromSearchParams } from "@/lib/parse-search-params";
+import { defaultClosedViewMonth } from "@/lib/gym-calendar";
 import { ReportsPageContent } from "@/components/reports/reports-page-content";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 export default async function OwnerReportsPage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
-  const { month, year } = parseMonthYearFromSearchParams(params);
+  const { month, year } = parseMonthYearFromSearchParams(params, "", defaultClosedViewMonth());
   const showAll = parseShowAllFromSearchParams(params);
 
   const trainers = await prisma.employee.findMany({

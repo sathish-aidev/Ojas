@@ -56,7 +56,7 @@ function ChartCard({
         {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
       </CardHeader>
       <CardContent>
-        <div style={{ height }}>{children}</div>
+        <div className={height >= 320 ? "h-[240px] sm:h-[320px]" : "h-[220px] sm:h-[280px]"}>{children}</div>
       </CardContent>
     </Card>
   );

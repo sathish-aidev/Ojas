@@ -18,7 +18,7 @@ export function SheetSyncActions({
   const [message, setMessage] = useState<string | null>(null);
 
   async function syncNow() {
-    if (!compact && !confirm("Pull latest PT data from Google Sheets and update the app?")) return;
+    if (!confirm("Pull latest PT data from Google Sheets and update the app?")) return;
     setSyncing(true);
     setMessage(null);
     try {
@@ -86,10 +86,13 @@ export function SheetSyncActions({
           size={compact ? "sm" : "default"}
           onClick={syncNow}
           disabled={syncing || backingUp}
-          className={compact ? "min-h-11" : "min-h-11"}
+          className="min-h-11 min-w-11"
+          aria-label={syncing ? "Syncing sheets" : "Sync sheets"}
         >
           <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing…" : compact ? "Sync sheets" : "Sync from Google Sheets"}
+          <span className={compact ? "hidden sm:inline" : undefined}>
+            {syncing ? "Syncing…" : compact ? "Sync sheets" : "Sync from Google Sheets"}
+          </span>
         </Button>
         {showBackup && (
           <Button

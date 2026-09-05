@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { decimalToNumber, formatDate } from "@/lib/utils";
 import { getMonthName } from "@/lib/permissions";
-import { shiftMonth } from "@/lib/date-ymd";
+import { shiftMonth, startOfTodayInTimeZone } from "@/lib/date-ymd";
 import {
   BOOKS_CLOSE_DAY,
   formatCloseByLabel,
@@ -112,6 +112,7 @@ export type OwnerHomeOverview = {
   payrollLabel: string;
   renewals: Array<{
     id: string;
+    clientId: string;
     clientName: string;
     trainerName: string;
     endDateLabel: string;
@@ -131,9 +132,13 @@ export type SupervisorHomeOverview = {
   ptMonthLabel: string;
   spendMonthLabel: string;
   subtitle: string;
+  reportsHref: string;
+  salariesHref: string;
+  expensesHref: string;
   closedKpis: HomeKpi[];
   liveKpis: HomeKpi[];
   alerts: HomeAlert[];
+  compare: { booksLabel: string; priorLabel: string; rows: CompareRow[] } | null;
   ptByTrainer: Array<{ name: string; clients: number; ptRevenue: number }>;
   spendMix: NamedAmount[];
   spendTrend: Array<{ label: string; spent: number }>;
@@ -146,6 +151,7 @@ export type SupervisorHomeOverview = {
   payrollLabel: string;
   renewals: Array<{
     id: string;
+    clientId: string;
     clientName: string;
     trainerName: string;
     endDateLabel: string;
@@ -192,10 +198,8 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function startOfLocalDay(date = new Date()) {
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  return start;
+function startOfGymDay() {
+  return startOfTodayInTimeZone("Asia/Kolkata");
 }
 
 function shortMonthLabel(month: number, year: number) {
@@ -274,7 +278,7 @@ function booksSubtitle(
 }
 
 async function getOperationalSnapshot(gymId: string) {
-  const startToday = startOfLocalDay();
+  const startToday = startOfGymDay();
   const in7 = addDays(startToday, 7);
   const in30 = addDays(startToday, 30);
 
@@ -327,6 +331,7 @@ async function getOperationalSnapshot(gymId: string) {
     renewals30Count,
     renewals: renewals.map((sub) => ({
       id: sub.id,
+      clientId: sub.client.id,
       clientName: sub.client.name,
       trainerName: sub.client.trainer.user.name,
       endDateLabel: formatDate(sub.endDate),
@@ -443,7 +448,7 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
     alerts.push({
       tone: "warning",
       text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid for ${booksLabel}`,
-      href: "/owner/salaries",
+      href: monthHref("/owner/salaries", books.month, books.year),
     });
   }
   if (ops.renewals7Count > 0) {
@@ -513,7 +518,7 @@ export async function getOwnerHomeOverview(gymId: string): Promise<OwnerHomeOver
       title: "PT this month so far",
       value: formatInr(calendarPt),
       subtitle: `${calendarLabel} collections`,
-      href: "/owner/reports",
+      href: monthHref("/owner/reports", calendar.month, calendar.year),
     },
     {
       title: "Petty cash left",
@@ -638,26 +643,56 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
   const payroll = payrollRows(payrollRuns);
   const pendingPayroll = payroll.filter((run) => run.status !== "PAID").length;
   const ptRevenue = trainers.reduce((sum, trainer) => sum + trainer.monthlyRevenue, 0);
+  const reportsHref = monthHref("/supervisor/reports", ptMonth.month, ptMonth.year);
+  const salariesHref = monthHref("/supervisor/salaries", books.month, books.year);
+  const expensesHref = monthHref("/supervisor/expenses", spendMonth.month, spendMonth.year);
+  const liveExpensesHref = monthHref("/supervisor/expenses", calendar.month, calendar.year);
+
+  const priorBooksKey = shiftMonth(books.month, books.year, -1);
+  const booksPt =
+    trendRaw.find((row) => row.month === books.month && row.year === books.year)?.ptRevenue ?? ptRevenue;
+  const priorPt = isBeforeGymStart(priorBooksKey.month, priorBooksKey.year)
+    ? undefined
+    : trendRaw.find((row) => row.month === priorBooksKey.month && row.year === priorBooksKey.year)?.ptRevenue;
+  const booksSpend =
+    liveExpenses.trend.find((row) => row.month === books.month && row.year === books.year)?.spendTotal ?? 0;
+  const priorSpend = isBeforeGymStart(priorBooksKey.month, priorBooksKey.year)
+    ? undefined
+    : liveExpenses.trend.find((row) => row.month === priorBooksKey.month && row.year === priorBooksKey.year)
+        ?.spendTotal;
+  const compare = !isBeforeGymStart(priorBooksKey.month, priorBooksKey.year)
+    ? {
+        booksLabel,
+        priorLabel: formatMonthYear(priorBooksKey.month, priorBooksKey.year),
+        rows: [
+          { label: "PT collected", books: booksPt, prior: priorPt ?? null },
+          { label: "Supervisor spend", books: booksSpend, prior: priorSpend ?? null },
+        ],
+      }
+    : null;
 
   const alerts: HomeAlert[] = [];
   if (due) {
+    const dueLabel = formatMonthYear(due.month, due.year);
     alerts.push({
       tone: isBooksOverdue(today, due) ? "warning" : "info",
-      text: `${formatMonthYear(due.month, due.year)} gym bills are usually entered by ${formatCloseByLabel(due)}.`,
-      href: "/supervisor/expenses",
+      text: isBooksOverdue(today, due)
+        ? `${dueLabel} spends are past the usual ${formatCloseByLabel(due)} entry.`
+        : `${dueLabel} spends are usually entered by ${formatCloseByLabel(due)}.`,
+      href: monthHref("/supervisor/expenses", due.month, due.year),
     });
   }
   if (liveExpenses.pettyRemaining < 0) {
     alerts.push({
       tone: "warning",
       text: "Petty cash is overdrawn — ask the owner for a top-up",
-      href: "/supervisor/expenses",
+      href: liveExpensesHref,
     });
   } else if (liveExpenses.pettyRemaining > 0 && liveExpenses.pettyRemaining < 2000) {
     alerts.push({
       tone: "info",
       text: `Petty cash remaining is ${formatInr(liveExpenses.pettyRemaining)}`,
-      href: "/supervisor/expenses",
+      href: liveExpensesHref,
     });
   }
   if (ops.renewals7Count > 0) {
@@ -671,7 +706,13 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
     alerts.push({
       tone: "warning",
       text: `${pendingPayroll} payroll ${pendingPayroll === 1 ? "run is" : "runs are"} still unpaid for ${booksLabel}`,
-      href: "/supervisor/salaries",
+      href: salariesHref,
+    });
+  } else if (payroll.length === 0) {
+    alerts.push({
+      tone: "info",
+      text: `Payroll is not generated yet for ${booksLabel}`,
+      href: salariesHref,
     });
   }
 
@@ -693,7 +734,7 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
       title: "Petty cash left",
       value: formatInr(liveExpenses.pettyRemaining),
       subtitle: `Issued ${formatInr(liveExpenses.pettyIssuedAll)} · Spent ${formatInr(liveExpenses.pettySpentAll)}`,
-      href: "/supervisor/expenses",
+      href: liveExpensesHref,
       highlight: true,
       tone: liveExpenses.pettyRemaining < 0 ? "negative" : liveExpenses.pettyRemaining === 0 ? "default" : "positive",
     },
@@ -701,28 +742,42 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
       title: "Spent this month so far",
       value: formatInr(liveExpenses.pettySpentMonth),
       subtitle: calendarLabel,
-      href: "/supervisor/expenses",
+      href: liveExpensesHref,
     },
   ];
+
+  const priorPtKpiKey = shiftMonth(ptMonth.month, ptMonth.year, -1);
+  const priorSpendKpiKey = shiftMonth(spendMonth.month, spendMonth.year, -1);
+  const priorPtKpi = isBeforeGymStart(priorPtKpiKey.month, priorPtKpiKey.year)
+    ? undefined
+    : trendRaw.find((row) => row.month === priorPtKpiKey.month && row.year === priorPtKpiKey.year)?.ptRevenue;
+  const priorSpendKpi = isBeforeGymStart(priorSpendKpiKey.month, priorSpendKpiKey.year)
+    ? undefined
+    : liveExpenses.trend.find(
+        (row) => row.month === priorSpendKpiKey.month && row.year === priorSpendKpiKey.year
+      )?.spendTotal;
 
   const closedKpis: HomeKpi[] = [
     {
       title: "PT collected",
       value: formatInr(ptRevenue),
       subtitle: ptMonthLabel,
-      href: "/supervisor/reports",
+      href: reportsHref,
+      deltaPct: momPct(ptRevenue, priorPtKpi),
     },
     {
       title: "Supervisor spend",
       value: formatInr(spendTotal),
       subtitle: spendMonthLabel,
-      href: "/supervisor/expenses",
+      href: expensesHref,
+      deltaPct: momPct(spendTotal, priorSpendKpi),
+      deltaInvert: true,
     },
     {
       title: "Payroll unpaid",
       value: String(pendingPayroll),
       subtitle: payroll.length === 0 ? `Not generated for ${booksLabel}` : `${payroll.length} runs · ${booksLabel}`,
-      href: "/supervisor/salaries",
+      href: salariesHref,
       tone: pendingPayroll > 0 ? "warning" : "default",
     },
     {
@@ -739,9 +794,13 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
     ptMonthLabel,
     spendMonthLabel,
     subtitle: booksSubtitle(booksLabel, calendarLabel, due),
+    reportsHref,
+    salariesHref,
+    expensesHref,
     closedKpis,
     liveKpis,
     alerts,
+    compare,
     ptByTrainer: trainers.map((trainer) => ({
       name: trainer.name,
       clients: trainer.clientCount,
@@ -823,7 +882,7 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
   let active = 0;
   let expiring = 0;
   let expired = 0;
-  const in7 = addDays(startOfLocalDay(now), 7);
+  const in7 = addDays(startOfGymDay(), 7);
   for (const client of clients) {
     const end = client.subscriptions[0]?.endDate;
     if (!end) {

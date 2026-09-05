@@ -25,7 +25,7 @@ export function TrainerSelector({
     <select
       value={selectedId}
       onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full max-w-xs rounded-md border bg-background px-3 text-sm sm:w-auto"
+      className="h-11 w-full max-w-xs rounded-md border bg-background px-3 text-sm sm:w-auto"
       aria-label="Select trainer"
     >
       {trainers.map((t) => (

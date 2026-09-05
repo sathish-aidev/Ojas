@@ -60,7 +60,7 @@ export function MonthYearPicker({
           <select
             value={month}
             onChange={(e) => updateMonthYear(Number(e.target.value), year)}
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+            className="h-11 min-w-[8rem] flex-1 rounded-md border bg-background px-3 text-sm sm:flex-none"
             aria-label="Month"
           >
             {MONTHS.map((m) => (
@@ -72,7 +72,7 @@ export function MonthYearPicker({
           <select
             value={year}
             onChange={(e) => updateMonthYear(month, Number(e.target.value))}
-            className="h-10 rounded-md border bg-background px-3 text-sm"
+            className="h-11 min-w-[5.5rem] rounded-md border bg-background px-3 text-sm"
             aria-label="Year"
           >
             {years.map((y) => (
@@ -88,7 +88,7 @@ export function MonthYearPicker({
           type="button"
           variant={showAll ? "default" : "outline"}
           size="sm"
-          className="min-h-10"
+          className="min-h-11"
           onClick={toggleShowAll}
         >
           {showAll ? `Showing all PTs` : "Show all"}

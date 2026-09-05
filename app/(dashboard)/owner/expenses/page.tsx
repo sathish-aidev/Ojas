@@ -7,7 +7,7 @@ import {
   listExpenses,
   prepareExpenseSheet,
 } from "@/lib/services/expenses";
-import { GYM_START_YEAR } from "@/lib/gym-calendar";
+import { GYM_START_YEAR, defaultClosedViewMonth } from "@/lib/gym-calendar";
 import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { ExpensesWorkspace } from "@/components/expenses/expenses-workspace";
 
@@ -21,7 +21,7 @@ export const maxDuration = 60;
 export default async function OwnerExpensesPage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
-  const { month, year } = parseMonthYearFromSearchParams(params);
+  const { month, year } = parseMonthYearFromSearchParams(params, "", defaultClosedViewMonth());
   const [dashboard, monthExpenses, yearExpenses, sheet] = await Promise.all([
     getExpenseDashboard(user.gymId, month, year),
     listExpenses(user.gymId, month, year),

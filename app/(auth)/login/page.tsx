@@ -47,7 +47,7 @@ export default function LoginPage() {
         <CardHeader className="items-center text-center">
           <AppLogo variant="login" className="mb-2" />
           <CardTitle className="sr-only">Sign in</CardTitle>
-          <CardDescription>Sign in to manage personal training</CardDescription>
+          <CardDescription>Sign in to manage the gym</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

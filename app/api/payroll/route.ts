@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   if (body.action === "generate") {
-    if (!canEditSalaryRules(user.role)) return forbidden();
+    if (!canRecordPayroll(user.role)) return forbidden();
     const parsed = payrollGenerateSchema.safeParse(body);
     if (!parsed.success) return badRequest("Invalid month/year");
     const runs = await generatePayrollForGym(user.gymId, parsed.data.month, parsed.data.year);

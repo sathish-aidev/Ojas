@@ -11,7 +11,7 @@ import { MonthYearPicker } from "@/components/reports/month-year-picker";
 import { RevenueDashboard } from "@/components/revenue/revenue-dashboard";
 import { CultSettlementForm } from "@/components/revenue/cult-settlement-form";
 import { SheetSyncActions } from "@/components/sync/sheet-sync-actions";
-import { clampToGymStart, GYM_START_YEAR } from "@/lib/gym-calendar";
+import { clampToGymStart, GYM_START_YEAR, defaultClosedViewMonth } from "@/lib/gym-calendar";
 import { NET_FORMULA_LABEL } from "@/lib/revenue-constants";
 
 type Props = {
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export default async function OwnerRevenuePage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
-  const selected = parseMonthYearFromSearchParams(params);
+  const selected = parseMonthYearFromSearchParams(params, "", defaultClosedViewMonth());
   const { month, year } = clampToGymStart(selected.month, selected.year);
 
   const scan = await scanCultInvoicesFromDrive(user.gymId, user.id, { parsePdfs: false }).catch((err: unknown) => ({

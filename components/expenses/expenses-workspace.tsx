@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatCurrency, PAYMENT_MODE_LABELS } from "@/lib/utils";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS } from "@/lib/revenue-constants";
+import { SUPERVISOR_SPEND_CATEGORIES } from "@/lib/services/expense-kinds";
 import type { ExpenseDashboard, SerializedExpense } from "@/lib/services/expenses";
 import { getMonthName } from "@/lib/permissions";
 import { monthsFromGymStartThrough } from "@/lib/gym-calendar";
@@ -73,6 +74,7 @@ export function ExpensesWorkspace({
   }
 
   const source = range === "month" ? monthExpenses : yearExpenses;
+  const filterCategories = isOwner ? EXPENSE_CATEGORIES : SUPERVISOR_SPEND_CATEGORIES;
   const filtered = useMemo(() => {
     return source.filter((row) => {
       if (!matchesLedger(row, ledger)) return false;
@@ -205,7 +207,7 @@ export function ExpensesWorkspace({
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Ledger</span>
             <select
-              className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="flex h-11 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
               value={ledger}
               onChange={(e) => setLedger(e.target.value as LedgerView)}
             >
@@ -218,7 +220,7 @@ export function ExpensesWorkspace({
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">View</span>
           <select
-            className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+            className="flex h-11 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
             value={range === "year" ? "year" : `m:${month}`}
             onChange={(e) => {
               const value = e.target.value;
@@ -241,12 +243,12 @@ export function ExpensesWorkspace({
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">Category</span>
           <select
-            className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+            className="flex h-11 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
             value={category}
             onChange={(e) => setCategory(e.target.value as "all" | ExpenseCategory)}
           >
             <option value="all">All</option>
-            {EXPENSE_CATEGORIES.map((c) => (
+            {filterCategories.map((c) => (
               <option key={c} value={c}>
                 {EXPENSE_CATEGORY_LABELS[c]}
               </option>
@@ -256,7 +258,7 @@ export function ExpensesWorkspace({
         <label className="space-y-1 text-sm">
           <span className="text-muted-foreground">Payment</span>
           <select
-            className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+            className="flex h-11 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
             value={mode}
             onChange={(e) => setMode(e.target.value as "all" | PaymentMode | "UNSET")}
           >
@@ -273,7 +275,7 @@ export function ExpensesWorkspace({
           <label className="space-y-1 text-sm">
             <span className="text-muted-foreground">Type</span>
             <select
-              className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="flex h-11 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 text-sm sm:w-auto"
               value={kind}
               onChange={(e) => setKind(e.target.value as "all" | ExpenseKind)}
             >

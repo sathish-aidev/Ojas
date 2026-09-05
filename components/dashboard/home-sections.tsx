@@ -84,7 +84,10 @@ export function MonthCompareTable({
                   : ((row.books - row.prior) / Math.abs(row.prior)) * 100;
               const up = delta != null && delta > 0.5;
               const down = delta != null && delta < -0.5;
-              const invert = row.label === "Gym bills" || row.label === "Payroll paid";
+              const invert =
+                row.label === "Gym bills" ||
+                row.label === "Payroll paid" ||
+                row.label === "Supervisor spend";
               const deltaClass = invert
                 ? up
                   ? "text-red-600"
@@ -183,7 +186,12 @@ export function QuickLinks({
   return (
     <div className="flex flex-wrap gap-2">
       {links.map((link) => (
-        <Button key={link.href} asChild variant={link.primary ? "default" : "outline"} className="min-h-11">
+        <Button
+          key={link.href}
+          asChild
+          variant={link.primary ? "default" : "outline"}
+          className="min-h-11 flex-1 sm:flex-none"
+        >
           <Link href={link.href}>{link.label}</Link>
         </Button>
       ))}
@@ -208,7 +216,7 @@ export function HomeListCard({
 }) {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-col gap-2 space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="text-lg">{title}</CardTitle>
         {href ? (
           <Button asChild variant="outline" size="sm">
@@ -236,11 +244,13 @@ export function AmountRow({
   badge?: { label: string; variant?: "default" | "secondary" | "success" | "warning" };
   href?: string;
 }) {
+  const className =
+    "flex items-center justify-between gap-3 rounded-lg border p-3";
   const inner = (
     <>
-      <div className="min-w-0">
-        <p className="font-medium">{title}</p>
-        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{title}</p>
+        {subtitle ? <p className="truncate text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2 text-right">
         {badge ? <Badge variant={badge.variant ?? "secondary"}>{badge.label}</Badge> : null}
@@ -250,8 +260,6 @@ export function AmountRow({
       </div>
     </>
   );
-
-  const className = "flex items-center justify-between gap-3 rounded-lg border p-3";
   if (href) {
     return (
       <Link href={href} className={`${className} hover:bg-muted/50`}>

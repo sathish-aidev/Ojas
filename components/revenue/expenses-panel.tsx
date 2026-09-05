@@ -258,7 +258,7 @@ export function ExpensesPanel({
                 <Label htmlFor="expense-kind">Type</Label>
                 <select
                   id="expense-kind"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={form.kind}
                   onChange={(e) => applyKind(e.target.value as ExpenseKind)}
                 >
@@ -278,6 +278,7 @@ export function ExpensesPanel({
                 id="expense-date"
                 type="date"
                 required
+                className="min-h-11"
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
               />
@@ -286,7 +287,7 @@ export function ExpensesPanel({
               <Label htmlFor="expense-category">Category</Label>
               <select
                 id="expense-category"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form.category}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))
@@ -304,9 +305,11 @@ export function ExpensesPanel({
               <Input
                 id="expense-amount"
                 type="number"
+                inputMode="decimal"
                 min={0.01}
                 step="0.01"
                 required
+                className="min-h-11"
                 value={form.amount}
                 onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               />
@@ -316,6 +319,7 @@ export function ExpensesPanel({
               <Input
                 id="expense-description"
                 required
+                className="min-h-11"
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
@@ -324,7 +328,7 @@ export function ExpensesPanel({
               <Label htmlFor="expense-mode">Payment mode</Label>
               <select
                 id="expense-mode"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="flex h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={form.paymentMode}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, paymentMode: e.target.value as "" | PaymentMode }))
@@ -342,6 +346,7 @@ export function ExpensesPanel({
               <Label htmlFor="expense-paid-by">Paid by</Label>
               <Input
                 id="expense-paid-by"
+                className="min-h-11"
                 value={form.paidBy}
                 onChange={(e) => setForm((f) => ({ ...f, paidBy: e.target.value }))}
               />
@@ -355,7 +360,7 @@ export function ExpensesPanel({
               />
             </div>
             <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-3">
-              <Button type="submit" disabled={saving} className="min-h-11">
+              <Button type="submit" disabled={saving} className="min-h-11 w-full sm:w-auto">
                 {saving
                   ? "Saving…"
                   : editingId
@@ -379,7 +384,9 @@ export function ExpensesPanel({
 
       <div className="space-y-3">
         {expenses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No expenses in this view yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {isOwner ? "No expenses in this view yet." : "No spends in this view yet. Log one above."}
+          </p>
         ) : (
           expenses.map((row) => {
             const canEdit = canMutateExpenseKind(role, row.kind);
@@ -403,14 +410,14 @@ export function ExpensesPanel({
                       {row.kind === "SUPERVISOR_SPEND" ? " · not in Revenue" : " · in Revenue"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{formatCurrency(row.amount)}</p>
                     {canEdit ? (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => startEdit(row)}>
+                        <Button size="sm" variant="outline" className="min-h-11" onClick={() => startEdit(row)}>
                           Edit
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => remove(row.id)}>
+                        <Button size="sm" variant="destructive" className="min-h-11" onClick={() => remove(row.id)}>
                           Delete
                         </Button>
                       </>

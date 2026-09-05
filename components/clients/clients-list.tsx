@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { decimalToNumber } from "@/lib/utils";
-import type { SessionUser } from "@/lib/permissions";
+import { canManageClients, type SessionUser } from "@/lib/permissions";
 import { ClientListRow } from "@/components/clients/client-list-row";
 import Link from "next/link";
 
@@ -25,7 +25,7 @@ export async function ClientsListView({
     orderBy: { name: "asc" },
   });
 
-  const canDelete = user.role === "OWNER" || user.role === "TRAINER";
+  const canManage = canManageClients(user.role);
 
   return (
     <div className="space-y-6">
@@ -34,8 +34,8 @@ export async function ClientsListView({
           <h1 className="text-2xl font-bold">Clients</h1>
           <p className="text-muted-foreground">{clients.length} total clients</p>
         </div>
-        {user.role !== "SUPERVISOR" && (
-          <Button asChild size="lg" className="min-h-11">
+        {canManage && (
+          <Button asChild size="lg" className="min-h-11 w-full sm:w-auto">
             <Link href={`${basePath}/new`}>+ Add Client</Link>
           </Button>
         )}
@@ -55,7 +55,7 @@ export async function ClientsListView({
               <ClientListRow
                 key={client.id}
                 basePath={basePath}
-                canDelete={canDelete}
+                canDelete={false}
                 client={{
                   id: client.id,
                   name: client.name,

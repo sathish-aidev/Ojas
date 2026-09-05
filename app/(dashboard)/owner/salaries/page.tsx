@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/session";
 import { getSalariesOverview } from "@/lib/services/salaries";
 import { SalariesPanel } from "@/components/salaries/salaries-panel";
 import { parseMonthYearFromSearchParams } from "@/lib/parse-search-params";
+import { defaultClosedViewMonth } from "@/lib/gym-calendar";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -11,7 +12,7 @@ type Props = {
 export default async function OwnerSalariesPage({ searchParams }: Props) {
   const user = await requireOwner();
   const params = await searchParams;
-  const { month, year } = parseMonthYearFromSearchParams(params);
+  const { month, year } = parseMonthYearFromSearchParams(params, "", defaultClosedViewMonth());
   const overview = await getSalariesOverview(user.gymId, month, year);
 
   return (
