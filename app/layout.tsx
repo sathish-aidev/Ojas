@@ -11,8 +11,8 @@ export const metadata: Metadata = {
   title: APP_NAME,
   description: "Personal training tracker for gym owners and trainers",
   icons: {
-    icon: "/branding/impackt-mark.svg",
-    apple: "/branding/impackt-mark.svg",
+    icon: "/branding/impackt-crest.png",
+    apple: "/branding/impackt-crest.png",
   },
 };
 

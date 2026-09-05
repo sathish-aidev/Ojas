@@ -44,13 +44,13 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ### Demo Logins (password: `password123`)
 
-| Role       | User ID    |
-|------------|------------|
-| Owner      | owner      |
-| Supervisor | lokesh     |
-| Trainer    | rohit      |
-| Trainer    | rahul      |
-| Trainer    | saikaran   |
+| Role       | User ID    | Also works          |
+|------------|------------|---------------------|
+| Owner      | owner      | owner@impackt.gym   |
+| Supervisor | lokesh     | supervisor@impackt.gym |
+| Trainer    | rohit      | rohith@impackt.gym  |
+| Trainer    | rahul      | rahul@impackt.gym   |
+| Trainer    | saikaran   | sai@impackt.gym     |
 
 ## Modules
 

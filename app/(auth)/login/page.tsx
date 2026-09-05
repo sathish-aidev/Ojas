@@ -44,7 +44,7 @@ export default function LoginPage() {
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <Card className="w-full max-w-md">
-        <CardHeader className="items-center text-center">
+        <CardHeader className="items-center overflow-visible text-center">
           <AppLogo variant="login" className="mb-2" />
           <CardTitle className="sr-only">Sign in</CardTitle>
           <CardDescription>Sign in to manage the gym</CardDescription>
@@ -62,10 +62,15 @@ export default function LoginPage() {
                 spellCheck={false}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="lokesh"
+                placeholder="owner"
                 required
                 className="min-h-11"
               />
+              <p className="text-xs text-muted-foreground">
+                Use <span className="font-medium text-foreground">owner</span> or{" "}
+                <span className="font-medium text-foreground">lokesh</span>. Your old email
+                still works too.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

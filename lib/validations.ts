@@ -12,13 +12,7 @@ const optionalPositiveAmount = z.preprocess(
 );
 
 export const loginSchema = z.object({
-  username: z
-    .string()
-    .trim()
-    .min(2, "User ID required")
-    .max(32)
-    .regex(/^[a-zA-Z0-9]+$/, "Use letters and numbers only")
-    .transform((value) => value.toLowerCase()),
+  username: z.string().trim().min(2, "User ID required").max(80),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations";
 import { authConfig } from "@/lib/auth.config";
+import { resolveLoginLookup } from "@/lib/username";
 import type { SessionUser } from "@/lib/permissions";
 
 declare module "next-auth" {
@@ -64,8 +65,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { username: parsed.data.username },
+        const lookup = resolveLoginLookup(parsed.data.username);
+        if (!lookup.username) return null;
+
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: lookup.username },
+              ...(lookup.email ? [{ email: lookup.email }] : []),
+            ],
+          },
           include: { employee: true },
         });
 

@@ -16,7 +16,9 @@ const NAME_MAP: Record<string, string> = {
 const EMAIL_LOCAL_MAP: Record<string, string> = {
   owner: "owner",
   supervisor: "lokesh",
+  lokesh: "lokesh",
   sai: "saikaran",
+  saikaran: "saikaran",
   rohith: "rohit",
   rohit: "rohit",
   rahul: "rahul",
@@ -28,6 +30,20 @@ export function slugifyUsername(name: string): string {
 
 export function normalizeUsername(raw: string): string {
   return raw.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Accepts `lokesh`, `Lokesh`, or `owner@impackt.gym` / `supervisor@impackt.gym`. */
+export function resolveLoginLookup(raw: string): { username: string; email?: string } {
+  const trimmed = raw.trim().toLowerCase();
+  if (!trimmed) return { username: "" };
+
+  if (trimmed.includes("@")) {
+    const local = trimmed.split("@")[0] ?? "";
+    const username = EMAIL_LOCAL_MAP[local] || slugifyUsername(local);
+    return { username, email: trimmed };
+  }
+
+  return { username: normalizeUsername(trimmed) };
 }
 
 export function emailForUsername(username: string): string {
