@@ -104,7 +104,7 @@ export default async function SupervisorDashboardPage() {
         ) : null}
         <div className="grid gap-6 lg:grid-cols-2">
           <TrainerPtBarChart
-            title={`PT collected · ${home.ptMonthLabel}`}
+            title={`PT by trainer · ${home.ptMonthLabel}`}
             data={home.ptByTrainer}
             empty={`No PT collected in ${home.ptMonthLabel}.`}
           />
@@ -169,7 +169,7 @@ export default async function SupervisorDashboardPage() {
           { href: "/supervisor/clients", label: "Clients" },
           { href: "/supervisor/renewals", label: "Renewals" },
           { href: home.salariesHref, label: "Salaries" },
-          { href: home.reportsHref, label: "PT reports" },
+          { href: home.reportsHref, label: "PT by Trainer" },
           { href: "/supervisor/trainers", label: "Trainers" },
         ]}
       />

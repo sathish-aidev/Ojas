@@ -13,7 +13,9 @@ export async function GET(request: Request) {
 
   if (type === "renewals") {
     const days = parseInt(searchParams.get("days") ?? "30");
-    const renewals = await getRenewalPipeline(user.gymId, days);
+    const trainerId =
+      user.role === "TRAINER" ? user.employeeId ?? "__none__" : undefined;
+    const renewals = await getRenewalPipeline(user.gymId, days, trainerId);
     return ok(renewals);
   }
 

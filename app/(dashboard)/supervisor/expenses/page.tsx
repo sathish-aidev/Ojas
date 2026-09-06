@@ -35,7 +35,7 @@ export default async function SupervisorExpensesPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
           <p className="text-muted-foreground">
-            {getMonthName(month)} {year} — spend from cash the owner gave you (not added to Revenue)
+            {getMonthName(month)} {year} — owner sent vs your expenses, and cash remaining (not added to Revenue)
           </p>
         </div>
         <Suspense fallback={null}>

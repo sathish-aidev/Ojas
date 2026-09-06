@@ -46,7 +46,7 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/supervisor/trainers", label: "Trainers", icon: Users },
         { href: "/supervisor/clients", label: "Clients", icon: UserCircle },
         { href: "/supervisor/renewals", label: "Renewals", icon: ClipboardList },
-        { href: "/supervisor/reports", label: "PT Reports", icon: FileBarChart },
+        { href: "/supervisor/reports", label: "PT by Trainer", icon: FileBarChart },
         { href: "/supervisor/salaries", label: "Salaries", icon: DollarSign },
         { href: "/supervisor/expenses", label: "Expenses", icon: Receipt },
       ];
@@ -54,6 +54,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       return [
         { href: "/trainer", label: "Home", icon: LayoutDashboard },
         { href: "/trainer/clients", label: "Clients", icon: Users },
+        { href: "/trainer/renewals", label: "Renewals", icon: ClipboardList },
         { href: "/trainer/schedule", label: "Schedule", icon: Calendar },
         { href: "/trainer/earnings", label: "Earnings", icon: TrendingUp },
       ];

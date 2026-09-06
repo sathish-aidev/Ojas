@@ -35,7 +35,7 @@ export default async function SupervisorReportsPage({ searchParams }: Props) {
   return (
     <Suspense fallback={<div className="p-4">Loading...</div>}>
       <ReportsPageContent
-        title="PT Reports"
+        title="PT by Trainer"
         subtitle="Monthly client breakdown and trainer share"
 
         trainers={trainerOptions}

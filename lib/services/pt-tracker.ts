@@ -504,14 +504,14 @@ export async function syncSubscriptionStatuses(gymId: string) {
   });
 }
 
-export async function getRenewalPipeline(gymId: string, days = 30) {
+export async function getRenewalPipeline(gymId: string, days = 30, trainerId?: string) {
   const now = new Date();
   const future = new Date();
   future.setDate(future.getDate() + days);
 
   return prisma.pTSubscription.findMany({
     where: {
-      client: { gymId },
+      client: { gymId, ...(trainerId ? { trainerId } : {}) },
       endDate: { gte: now, lte: future },
       status: { in: ["ACTIVE", "EXPIRING"] },
     },

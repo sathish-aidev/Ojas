@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
-  Calendar,
   DollarSign,
   UserCircle,
   TrendingUp,
   ClipboardList,
   Wallet,
   Receipt,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@prisma/client";
@@ -36,6 +36,7 @@ function getNavItems(role?: UserRole): NavItem[] {
       return [
         { href: "/supervisor", label: "Home", icon: LayoutDashboard },
         { href: "/supervisor/clients", label: "Clients", icon: UserCircle },
+        { href: "/supervisor/reports", label: "PT", icon: FileBarChart },
         { href: "/supervisor/expenses", label: "Spend", icon: Receipt },
         { href: "/supervisor/renewals", label: "Renew", icon: ClipboardList },
         { href: "/supervisor/salaries", label: "Pay", icon: DollarSign },
@@ -45,7 +46,7 @@ function getNavItems(role?: UserRole): NavItem[] {
         { href: "/trainer", label: "Home", icon: LayoutDashboard },
         { href: "/trainer/clients", label: "Clients", icon: Users },
         { href: "/trainer/clients/new", label: "Add PT", icon: UserCircle },
-        { href: "/trainer/schedule", label: "Schedule", icon: Calendar },
+        { href: "/trainer/renewals", label: "Renew", icon: ClipboardList },
         { href: "/trainer/earnings", label: "Pay", icon: TrendingUp },
       ];
     default:
@@ -80,7 +81,7 @@ export function MobileBottomNav({ role }: { role?: UserRole }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-h-14 min-w-[4rem] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors",
+                "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[10px] font-medium transition-colors",
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"

@@ -48,29 +48,31 @@ export function RenewalsTabs({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {trainers.map((trainer) => {
-          const count = renewalsByTrainer[trainer.id]?.length ?? 0;
-          const active = trainer.id === activeTrainerId;
-          return (
-            <button
-              key={trainer.id}
-              type="button"
-              onClick={() => selectTrainer(trainer.id)}
-              className={`min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "bg-background hover:bg-muted"
-              }`}
-            >
-              {trainer.name}
-              {count > 0 && (
-                <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-xs">
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {trainers.length > 1
+          ? trainers.map((trainer) => {
+              const count = renewalsByTrainer[trainer.id]?.length ?? 0;
+              const active = trainer.id === activeTrainerId;
+              return (
+                <button
+                  key={trainer.id}
+                  type="button"
+                  onClick={() => selectTrainer(trainer.id)}
+                  className={`min-h-11 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "bg-background hover:bg-muted"
+                  }`}
+                >
+                  {trainer.name}
+                  {count > 0 && (
+                    <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-xs">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })
+          : null}
       </div>
 
       <div className="grid gap-3">

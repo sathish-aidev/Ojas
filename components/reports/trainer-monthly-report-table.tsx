@@ -56,7 +56,7 @@ export function TrainerMonthlyReportTable({
       <p className="text-xs text-muted-foreground">
         {showAll
           ? "All PT packages for this trainer, sorted by start date."
-          : `Lists all clients active this month. Split % applies to every active PT based on whether collections in ${getMonthName(period.month)} ${period.year} met the target. This Month Revenue shows cash collected this month; Paid On is when the client actually paid.`}
+          : `Lists cash collected in ${getMonthName(period.month)} ${period.year} and packs whose service month is this month. Start/End stay on the pack dates. Trainer share is counted in the service month.`}
       </p>
 
       <div className="overflow-x-auto rounded-lg border -mx-1">
@@ -80,7 +80,7 @@ export function TrainerMonthlyReportTable({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={COL_SPAN} className="px-3 py-8 text-center text-muted-foreground">
-                  No active PT clients for this month.
+                  No PT collected or active this month.
                 </td>
               </tr>
             ) : (

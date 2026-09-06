@@ -90,7 +90,8 @@ export default async function TrainerDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <HomeListCard
           title="Renewals due"
-          href="/trainer/clients"
+          href="/trainer/renewals"
+          hrefLabel="Renewals"
           empty="No packs ending this week."
           isEmpty={home.expiringClients.length === 0}
         >
@@ -124,6 +125,7 @@ export default async function TrainerDashboardPage() {
       <QuickLinks
         links={[
           { href: "/trainer/clients/new", label: "Add PT", primary: true },
+          { href: "/trainer/renewals", label: "Renewals" },
           { href: "/trainer/schedule", label: "Schedule" },
           { href: "/trainer/clients", label: "All clients" },
           { href: "/trainer/earnings", label: "Earnings" },

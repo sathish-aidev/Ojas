@@ -116,23 +116,31 @@ export function ExpensesWorkspace({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Cash remaining"
+            title="Balance"
             value={inr(dashboard.pettyRemaining)}
             subtitle={
               remainingOverdrawn
                 ? "Overdrawn — ask owner for a top-up"
                 : remainingLow
                   ? "Running low — ask owner for a top-up"
-                  : "From cash the owner has given you"
+                  : "Owner sent − expenses"
             }
             highlight={remainingOverdrawn || remainingLow}
           />
-          <StatCard title="Given this month" value={inr(dashboard.pettyIssuedMonth)} subtitle={monthLabel} />
-          <StatCard title="Spent this month" value={inr(dashboard.pettySpentMonth)} subtitle="Not added to Revenue" />
           <StatCard
-            title="Spent (all time)"
+            title="Owner sent"
+            value={inr(dashboard.pettyIssuedAll)}
+            subtitle={`This month ${inr(dashboard.pettyIssuedMonth)} · ${monthLabel}`}
+          />
+          <StatCard
+            title="Expenses"
+            value={inr(dashboard.pettySpentMonth)}
+            subtitle={`${monthLabel} · not added to Revenue`}
+          />
+          <StatCard
+            title="Expenses (all time)"
             value={inr(dashboard.pettySpentAll)}
-            subtitle={`From ${inr(dashboard.pettyIssuedAll)} given in total`}
+            subtitle={`From ${inr(dashboard.pettyIssuedAll)} owner sent`}
           />
         </div>
       )}

@@ -98,6 +98,37 @@ function dedupeServiceMonthPayments(payments: ServiceMonthPayment[]): ServiceMon
   return [...seen.values()];
 }
 
+/** Include cash collected this month even when the pack's service month is later. */
+export function mergeMonthlyReportPayments<T extends { id: string; subscriptionId: string }>(
+  servicePayments: T[],
+  collectedPayments: T[]
+): { payments: T[]; collectionOnlyIds: Set<string> } {
+  const payments = [...servicePayments];
+  const seenIds = new Set(servicePayments.map((p) => p.id));
+  const seenSubs = new Set(servicePayments.map((p) => p.subscriptionId));
+  const collectionOnlyIds = new Set<string>();
+  for (const payment of collectedPayments) {
+    if (seenIds.has(payment.id) || seenSubs.has(payment.subscriptionId)) continue;
+    seenIds.add(payment.id);
+    seenSubs.add(payment.subscriptionId);
+    payments.push(payment);
+    collectionOnlyIds.add(payment.id);
+  }
+  return { payments, collectionOnlyIds };
+}
+
+async function fetchCollectedMonthPayments(employeeId: string, month: number, year: number) {
+  return prisma.payment.findMany({
+    where: {
+      ...paymentsCollectedInMonthWhere(month, year),
+      subscription: { client: { trainerId: employeeId } },
+    },
+    include: {
+      subscription: { include: { client: true } },
+    },
+  });
+}
+
 export type TrainerMonthlyReport = {
   trainer: {
     id: string;
@@ -154,20 +185,17 @@ export async function getTrainerMonthlyReport(
 
   const [servicePayments, collectedPayments, totalPtRevenue] = await Promise.all([
     fetchServiceMonthPayments(employeeId, month, year),
-    prisma.payment.findMany({
-      where: {
-        ...paymentsCollectedInMonthWhere(month, year),
-        subscription: { client: { trainerId: employeeId } },
-      },
-      select: { subscriptionId: true, amount: true },
-    }),
+    fetchCollectedMonthPayments(employeeId, month, year),
     getTrainerMonthlyPtRevenue(employeeId, month, year),
   ]);
 
   const collectionBySubscription = aggregateSubscriptionCollections(collectedPayments);
-  const dedupedPayments = dedupeServiceMonthPayments(servicePayments);
+  const { payments: reportPayments, collectionOnlyIds } = mergeMonthlyReportPayments(
+    dedupeServiceMonthPayments(servicePayments),
+    collectedPayments
+  );
 
-  dedupedPayments.sort((a, b) => {
+  reportPayments.sort((a, b) => {
     const startCmp =
       a.subscription.startDate.getTime() - b.subscription.startDate.getTime();
     if (startCmp !== 0) return startCmp;
@@ -178,12 +206,13 @@ export async function getTrainerMonthlyReport(
   const splitStatus = getSplitStatusFromResolution(resolution);
   const configuredSplit = resolution.splitPercent;
 
-  const rows: TrainerMonthlyReportRow[] = dedupedPayments.map((p) => {
+  const rows: TrainerMonthlyReportRow[] = reportPayments.map((p) => {
     const sub = p.subscription;
     const packageAmount = decimalToNumber(sub.amount);
     const monthsCount = resolvePackageMonths(sub);
     const installmentIndex = p.installmentIndex;
     const collectedTotal = collectionBySubscription.get(p.subscriptionId);
+    const collectionOnly = collectionOnlyIds.has(p.id);
     return {
       paymentId: p.id,
       clientId: sub.clientId,
@@ -199,7 +228,7 @@ export async function getTrainerMonthlyReport(
       ),
       amountPaidThisMonth:
         collectedTotal !== undefined && collectedTotal > 0 ? collectedTotal : null,
-      trainerShare: decimalToNumber(p.trainerShareAmount),
+      trainerShare: collectionOnly ? 0 : decimalToNumber(p.trainerShareAmount),
       splitPercent: decimalToNumber(p.splitPercentUsed) || configuredSplit,
       serviceMonth: p.paidAt,
       paidOn: getPaymentCollectionDate(p),

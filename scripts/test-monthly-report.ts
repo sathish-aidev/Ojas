@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import {
   getTrainerMonthlyReport,
   aggregateSubscriptionCollections,
+  mergeMonthlyReportPayments,
 } from "../lib/services/trainer-monthly-report";
 import { calculateTrainerCommission } from "../lib/services/salaries";
 
@@ -34,6 +35,18 @@ function mainUnitTests() {
   ]);
   assert(totals.get("sub-a") === 30000, "Lump-sum installments sum per subscription");
   assert(totals.get("sub-b") === 8000, "Separate subscription tracked independently");
+
+  console.log("--- Unit: mergeMonthlyReportPayments ---");
+  const merged = mergeMonthlyReportPayments(
+    [{ id: "svc-1", subscriptionId: "sub-sept" }],
+    [
+      { id: "svc-1", subscriptionId: "sub-sept" },
+      { id: "pay-july", subscriptionId: "sub-dhaval" },
+    ]
+  );
+  assert(merged.payments.length === 2, "July cash for a September pack is listed");
+  assert(merged.collectionOnlyIds.has("pay-july"), "Dhaval-style row is collection-only");
+  assert(!merged.collectionOnlyIds.has("svc-1"), "Same-month pack is not duplicated");
 }
 
 async function main() {

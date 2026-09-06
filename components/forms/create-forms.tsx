@@ -207,7 +207,6 @@ export function CreateClientForm({
         phone: form.get("phone"),
         email: form.get("email"),
         trainerId: form.get("trainerId") || defaultTrainerId,
-        joinDate: form.get("joinDate"),
       }),
     });
 
@@ -255,16 +254,6 @@ export function CreateClientForm({
               </select>
             </div>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="joinDate">Join Date</Label>
-            <Input
-              id="joinDate"
-              name="joinDate"
-              type="date"
-              defaultValue={new Date().toISOString().split("T")[0]}
-              className="min-h-11"
-            />
-          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" disabled={loading} size="lg" className="w-full min-h-11">
             {loading ? "Saving..." : "Create Client"}

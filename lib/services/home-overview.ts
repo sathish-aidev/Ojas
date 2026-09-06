@@ -767,10 +767,29 @@ export async function getSupervisorHomeOverview(gymId: string): Promise<Supervis
       tone: ops.renewals7Count > 0 ? "warning" : "default",
     },
     {
-      title: "Spent this month so far",
-      value: formatInr(liveExpenses.pettySpentMonth),
-      subtitle: calendarLabel,
+      title: "Owner sent",
+      value: formatInr(liveExpenses.pettyIssuedAll),
+      subtitle: `This month ${formatInr(liveExpenses.pettyIssuedMonth)}`,
       href: liveExpensesHref,
+    },
+    {
+      title: "Expenses",
+      value: formatInr(liveExpenses.pettySpentMonth),
+      subtitle: `All time ${formatInr(liveExpenses.pettySpentAll)} · ${calendarLabel}`,
+      href: liveExpensesHref,
+    },
+    {
+      title: "Balance",
+      value: formatInr(liveExpenses.pettyRemaining),
+      subtitle:
+        liveExpenses.pettyRemaining < 0
+          ? "Overdrawn — ask owner for a top-up"
+          : liveExpenses.pettyRemaining < 2000
+            ? "Running low — ask owner for a top-up"
+            : "Cash remaining from owner petty cash",
+      href: liveExpensesHref,
+      highlight: liveExpenses.pettyRemaining < 2000,
+      tone: liveExpenses.pettyRemaining < 0 ? "negative" : liveExpenses.pettyRemaining < 2000 ? "warning" : "default",
     },
   ];
 
@@ -941,7 +960,7 @@ export async function getTrainerHomeOverview(employeeId: string): Promise<Traine
     alerts.push({
       tone: "warning",
       text: `${stats.expiringClients.length} ${stats.expiringClients.length === 1 ? "client needs" : "clients need"} renewal this week`,
-      href: "/trainer/clients",
+      href: "/trainer/renewals",
     });
   }
 

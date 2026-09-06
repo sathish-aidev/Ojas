@@ -55,7 +55,12 @@ export function KpiCard({ title, value, subtitle, href, deltaPct, deltaInvert, h
 
 export function KpiGrid({ items }: { items: HomeKpi[] }) {
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3",
+        items.length >= 5 ? "xl:grid-cols-5" : "xl:grid-cols-4"
+      )}
+    >
       {items.map((item) => (
         <KpiCard key={item.id ?? item.title} {...item} />
       ))}

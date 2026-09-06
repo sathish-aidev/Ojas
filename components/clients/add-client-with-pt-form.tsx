@@ -241,10 +241,6 @@ export function AddClientWithPTForm({
             />
             <p className="text-xs text-muted-foreground">JPEG, PNG, or WebP — max 5 MB</p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="client-join">Join Date</Label>
-            <Input id="client-join" name="joinDate" type="date" defaultValue={today} className="min-h-11" />
-          </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="pt-notes">Notes</Label>
             <Input id="pt-notes" name="ptNotes" placeholder="Package type, renewal notes..." />
