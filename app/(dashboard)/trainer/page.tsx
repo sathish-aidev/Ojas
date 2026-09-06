@@ -57,7 +57,7 @@ export default async function TrainerDashboardPage() {
           title="Today's sessions"
           href="/trainer/schedule"
           hrefLabel="Schedule"
-          empty="No active clients with PT running. Expired clients appear under All Clients."
+          empty="No active clients with PT running. Ended packs are listed under Past clients."
           isEmpty={home.todaySchedule.length === 0}
         >
           {home.todaySchedule.map((row) => (

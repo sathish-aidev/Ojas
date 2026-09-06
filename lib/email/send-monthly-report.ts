@@ -1,5 +1,6 @@
 import { getMonthName } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/utils";
+import { isProductionApp } from "@/lib/app-env";
 
 type EmailSummary = {
   syncStatus: string;
@@ -20,6 +21,10 @@ export async function sendMonthlyReportEmail(params: {
   zipFilename: string;
   summary: EmailSummary;
 }) {
+  if (!isProductionApp()) {
+    throw new Error("Monthly report email is disabled outside production");
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     throw new Error("RESEND_API_KEY is not configured");

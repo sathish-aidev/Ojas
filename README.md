@@ -102,6 +102,7 @@ See the [`docs/`](docs/) folder for:
 - [API-SPEC.md](docs/API-SPEC.md)
 - [ROADMAP.md](docs/ROADMAP.md)
 - [REVENUE.md](docs/REVENUE.md)
+- [STAGING.md](docs/STAGING.md) — isolated TEST gym for QA
 
 ## Deployment (Vercel + Neon)
 

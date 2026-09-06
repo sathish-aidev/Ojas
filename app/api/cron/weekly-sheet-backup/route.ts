@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest } from "@/lib/api-utils";
 import { runWeeklySheetBackup } from "@/lib/services/weekly-sheet-backup";
 import { cleanEnv } from "@/lib/env";
+import { isProductionApp } from "@/lib/app-env";
 
 export const maxDuration = 60;
 
@@ -14,6 +15,9 @@ function authorizeCron(request: Request): boolean {
 
 export async function GET(request: Request) {
   if (!authorizeCron(request)) return unauthorized();
+  if (!isProductionApp()) {
+    return ok({ skipped: true, reason: "Scheduled backups run only in production" });
+  }
 
   const gym = await prisma.gym.findFirst();
   if (!gym) return badRequest("No gym configured");

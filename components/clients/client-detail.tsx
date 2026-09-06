@@ -46,6 +46,7 @@ export async function ClientDetailView({
   const weightGoal = client.goals.find((g) => g.goalType === "WEIGHT_LOSS");
   const canEdit = canManageClients(user.role);
   const canDelete = canEdit;
+  const latestEnd = client.subscriptions[0]?.endDate;
 
   return (
     <div className="space-y-6">
@@ -53,7 +54,7 @@ export async function ClientDetailView({
         name={client.name}
         phone={client.phone}
         trainerName={client.trainer.user.name}
-        status={client.status}
+        subEndDate={latestEnd?.toISOString()}
         clientId={client.id}
         backHref={backHref}
         canDelete={canDelete}

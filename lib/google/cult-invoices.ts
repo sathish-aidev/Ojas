@@ -19,6 +19,7 @@ import {
   parseCultInvoiceFilename,
   type CultInvoiceKind,
 } from "@/lib/cult-invoice-parse";
+import { isProductionApp } from "@/lib/app-env";
 import { parseCultPdfText, type ParsedCultPdf } from "@/lib/cult-pdf-parse";
 
 export type CultDriveFile = {
@@ -110,6 +111,10 @@ export async function listCultInvoiceFiles(): Promise<{
   await collectFromFolder(rootId, "Gym Drive", 2, byId);
 
   try {
+    if (!isProductionApp()) {
+      const files = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+      return { folders, files };
+    }
     const searched = await searchDrivePdfsByName([
       "Mnt End",
       "MntEnd",

@@ -1,4 +1,6 @@
 import { cleanEnv } from "@/lib/env";
+import { isProductionApp } from "@/lib/app-env";
+import { assertGoogleIdAllowed } from "@/lib/google/production-google-ids";
 
 /** Google Sheet tab names — must match trainer User.name (case-insensitive). */
 export const TRAINER_SHEET_TABS = ["Rohith", "Sai Karan", "Rahul"] as const;
@@ -52,26 +54,39 @@ export const SHEET_HEADERS = [
 export function getSpreadsheetId(): string {
   const id = cleanEnv(process.env.GOOGLE_SHEETS_SPREADSHEET_ID);
   if (!id) throw new Error("GOOGLE_SHEETS_SPREADSHEET_ID is not configured");
+  assertGoogleIdAllowed("spreadsheet", id);
   return id;
 }
 
 /** Optional user-owned spreadsheet for weekly tab copies (avoids SA Drive quota). */
 export function getBackupSpreadsheetId(): string | undefined {
-  return cleanEnv(process.env.GOOGLE_BACKUP_SPREADSHEET_ID);
+  const id = cleanEnv(process.env.GOOGLE_BACKUP_SPREADSHEET_ID);
+  if (id) assertGoogleIdAllowed("backup spreadsheet", id);
+  return id;
 }
 
 /** Expenses live on the PT tracker by default; override with a dedicated sheet if needed. */
 export function getExpensesSpreadsheetId(): string {
-  return cleanEnv(process.env.GOOGLE_EXPENSES_SPREADSHEET_ID) || getSpreadsheetId();
+  const override = cleanEnv(process.env.GOOGLE_EXPENSES_SPREADSHEET_ID);
+  if (override) {
+    assertGoogleIdAllowed("expenses spreadsheet", override);
+    return override;
+  }
+  return getSpreadsheetId();
 }
 
 export function getDriveFolderId(): string {
-  return (
-    cleanEnv(process.env.GOOGLE_DRIVE_FOLDER_ID) ||
-    "1Jb8g5gFUdiIdBEwHMaOEDLetK0GK9FHN"
-  );
+  const id = cleanEnv(process.env.GOOGLE_DRIVE_FOLDER_ID);
+  if (!id) {
+    throw new Error("GOOGLE_DRIVE_FOLDER_ID is not configured");
+  }
+  assertGoogleIdAllowed("Drive folder", id);
+  return id;
 }
 
 export function getOwnerReportEmail(): string {
-  return cleanEnv(process.env.OWNER_REPORT_EMAIL) || "sparkversefitness@gmail.com";
+  const configured = cleanEnv(process.env.OWNER_REPORT_EMAIL);
+  if (configured) return configured;
+  if (!isProductionApp()) return "";
+  return "sparkversefitness@gmail.com";
 }

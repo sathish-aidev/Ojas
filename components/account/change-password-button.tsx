@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +11,28 @@ import { readApiError } from "@/lib/fetch-api";
 
 export function ChangePasswordButton() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,28 +61,31 @@ export function ChangePasswordButton() {
     form.reset();
   }
 
-  return (
-    <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="min-h-11 min-w-11"
-        onClick={() => {
-          setOpen(true);
-          setError("");
-          setSuccess("");
-        }}
-        aria-label="Change password"
+  const dialog =
+    open && mounted ? (
+      <div
+        className="fixed inset-0 z-[100] bg-black/50"
+        role="presentation"
+        onClick={() => setOpen(false)}
       >
-        <KeyRound className="h-4 w-4" />
-        <span className="hidden sm:inline">Password</span>
-      </Button>
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-          <Card className="w-full max-w-md">
+        <div
+          className="flex min-h-[100dvh] items-center justify-center overflow-y-auto p-4"
+          style={{
+            paddingTop: "max(1rem, env(safe-area-inset-top))",
+            paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <Card
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="change-password-title"
+            className="max-h-[min(36rem,calc(100dvh-2rem))] w-full max-w-md overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-lg">Change password</CardTitle>
+              <CardTitle id="change-password-title" className="text-lg">
+                Change password
+              </CardTitle>
               <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Close
               </Button>
@@ -114,7 +137,27 @@ export function ChangePasswordButton() {
             </CardContent>
           </Card>
         </div>
-      ) : null}
+      </div>
+    ) : null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="min-h-11 min-w-11"
+        onClick={() => {
+          setOpen(true);
+          setError("");
+          setSuccess("");
+        }}
+        aria-label="Change password"
+      >
+        <KeyRound className="h-4 w-4" />
+        <span className="hidden sm:inline">Password</span>
+      </Button>
+      {dialog ? createPortal(dialog, document.body) : null}
     </>
   );
 }

@@ -4,12 +4,13 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmButton } from "@/components/shared/delete-confirm-button";
+import { ptListBadge } from "@/lib/client-pt-status";
 
 type ClientDetailHeaderProps = {
   name: string;
   phone: string | null;
   trainerName: string;
-  status: string;
+  subEndDate?: string;
   clientId: string;
   backHref: string;
   canDelete: boolean;
@@ -19,11 +20,12 @@ export function ClientDetailHeader({
   name,
   phone,
   trainerName,
-  status,
+  subEndDate,
   clientId,
   backHref,
   canDelete,
 }: ClientDetailHeaderProps) {
+  const badge = ptListBadge(subEndDate);
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -36,7 +38,7 @@ export function ClientDetailHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <Badge variant={status === "ACTIVE" ? "success" : "secondary"}>{status}</Badge>
+        <Badge variant={badge.variant}>{badge.label}</Badge>
         {canDelete && (
           <DeleteConfirmButton
             endpoint={`/api/clients/${clientId}`}

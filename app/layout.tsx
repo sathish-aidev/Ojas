@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "@/components/providers/session-provider";
 
 import { APP_NAME } from "@/lib/app-config";
+import { TestEnvironmentBanner } from "@/components/layout/test-environment-banner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,7 +33,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <TestEnvironmentBanner />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

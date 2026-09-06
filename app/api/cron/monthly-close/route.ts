@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { ok, unauthorized, badRequest } from "@/lib/api-utils";
 import { runMonthlyClose, getPreviousMonth } from "@/lib/services/monthly-close";
 import { cleanEnv } from "@/lib/env";
+import { isProductionApp } from "@/lib/app-env";
 
 export const maxDuration = 60;
 
@@ -11,6 +12,9 @@ export async function GET(request: Request) {
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return unauthorized();
+  }
+  if (!isProductionApp()) {
+    return ok({ skipped: true, reason: "Scheduled monthly close runs only in production" });
   }
 
   const gym = await prisma.gym.findFirst();
