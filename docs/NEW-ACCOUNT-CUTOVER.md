@@ -1,10 +1,43 @@
-# Impackt Fitness — new Cursor / GitHub / Vercel / Neon cutover
+# Impackt Fitness — new Cursor / Grok / Vercel cutover
 
-**Audience:** a Cursor agent (or human) on **brand-new** Cursor, GitHub, Vercel, and Neon accounts.
+**Audience:** a new Cursor agent, Grok bot, or human on **brand-new** Cursor/Grok, GitHub, Vercel, and Neon accounts.
 
-**Goal:** make the **live gym** run again with current members, logins, expenses, and payroll. Google Drive and the PT spreadsheet **stay on the existing Google account**.
+**Goal:** deploy the **live gym** on a **new Vercel** project with current members, logins, expenses, and payroll. Google Drive and the PT spreadsheet **stay on the existing Google account**.
 
 If you are that agent: follow the numbered steps in order. Do not invent a seed. Do not deploy an empty database. Do not use the old production hostname as `AUTH_URL`.
+
+---
+
+## Paste this as the first message to the new bot
+
+```
+Read docs/NEW-ACCOUNT-CUTOVER.md and follow it exactly.
+
+I am cutting the live Impackt Fitness gym over to a NEW GitHub + Vercel + Neon.
+Google Drive and the PT spreadsheet stay on the existing Google account.
+
+The restore kit is already copied into this clone at:
+  backups/prod-2026-09-08/
+
+That folder is gitignored. It has neon.dump, database.json, google-sa.json, and the xlsx.
+Do not git add backups/, .env, or google-sa.json.
+
+Hard rules:
+- Never npm run db:seed or db:seed-staging on the new live database.
+- APP_ENV=production (no yellow TEST banner).
+- Never restore into the old live Neon (script blocks ep-delicate-bonus / lingering-surf-62682822).
+- Never vercel link to old projects ojas or ojas-staging.
+- Keep https://ojas-chi.vercel.app running until I have logged into the NEW URL.
+
+Restore command after the new Neon exists:
+  $env:CONFIRM_RESTORE="YES"
+  $env:DATABASE_URL="<NEW neon pooled URL>"
+  npx tsx scripts/restore-prod-snapshot.ts backups/prod-2026-09-08
+
+Expected after restore: 1 gym, 7 users, 77 clients, 112 PT packs, 173 payments, 56 payroll runs, 97 payroll lines, 51 expenses.
+
+Start at Step 3 of the playbook (new Vercel + new Neon) unless GitHub is not connected yet.
+```
 
 ---
 
@@ -26,14 +59,14 @@ The GitHub repo is **code only**. Gym data is **not** in git (`/backups/` is git
 | Input | Where |
 |---|---|
 | Code | Clone of `main` (includes this file, `scripts/restore-prod-snapshot.ts`, `prisma/schema.prisma`) |
-| Restore kit | Folder `backups/prod-2026-09-07/` copied onto the new machine (USB / encrypted zip) |
+| Restore kit | Folder `backups/prod-2026-09-08/` copied onto the new machine (USB / encrypted zip) |
 
-If the kit is missing, **stop**. Ask the operator to copy `D:\impackt_Fitness_App\backups\prod-2026-09-07` from the old PC. Do not restore from `prisma/seed.ts`.
+If the kit is missing, **stop**. Ask the operator to copy `D:\impackt_Fitness_App\backups\prod-2026-09-08` from the old PC. Do not restore from `prisma/seed.ts`. Do **not** use the older `backups/prod-2026-09-07/` folder — that dump is stale.
 
 Place the kit at:
 
 ```
-<repo-root>/backups/prod-2026-09-07/
+<repo-root>/backups/prod-2026-09-08/
 ```
 
 Confirm these files exist before continuing:
@@ -41,15 +74,17 @@ Confirm these files exist before continuing:
 | File | Approx size | Purpose |
 |---|---|---|
 | `MANIFEST.txt` | ~1 KB | Table counts to verify after restore |
-| `neon.dump` | ~741 KB | Preferred Postgres dump (Neon 17) |
-| `database.json` | ~1.2 MB | Fallback JSON of all tables |
+| `neon.dump` | ~732 KB | Preferred Postgres dump (Neon 17) |
+| `database.json` | ~1.16 MB | Fallback JSON of all tables |
 | `google-sa.json` | ~2 KB | Google service account **private key** — never commit |
 | `env-checklist.txt` | ~1 KB | Env names to copy vs generate |
 | `google-snapshot.json` | ~400 B | Live Drive + spreadsheet IDs |
-| `Impackt-PT-Tracker-PROD-SNAPSHOT-2026-09-07.xlsx` | ~227 KB | Offline copy of PT tracker |
+| `Impackt-PT-Tracker-PROD-SNAPSHOT-2026-09-08.xlsx` | ~223 KB | Offline copy of PT tracker |
 | `README-FOR-NEW-CURSOR.md` | this playbook copy in the kit | Same instructions next to the dump |
 
-Kit snapshot time: **2026-09-08** (UTC). Git commit at dump time: `a96001b`. Restore scripts/docs landed later on `main`.
+Kit snapshot time: **2026-09-08T16:55:18Z**. Git commit at dump time: `848ad8b`.
+
+What changed vs the 07 Sep kit: **payrollRun 49 → 56**, **payrollLineItem 85 → 97**. Clients, packs, payments, and expenses are the same counts.
 
 ### Expected row counts (verify after restore)
 
@@ -62,8 +97,8 @@ Kit snapshot time: **2026-09-08** (UTC). Git commit at dump time: `a96001b`. Res
 | client | 77 |
 | pTSubscription | 112 |
 | payment | 173 |
-| payrollRun | 49 |
-| payrollLineItem | 85 |
+| payrollRun | 56 |
+| payrollLineItem | 97 |
 | gymExpense | 51 |
 | cultSettlement | 7 |
 | sheetSyncRun | 12 |
@@ -92,7 +127,7 @@ Kit snapshot time: **2026-09-08** (UTC). Git commit at dump time: `a96001b`. Res
 | Drive URL | https://drive.google.com/drive/folders/1Jb8g5gFUdiIdBEwHMaOEDLetK0GK9FHN |
 | PT spreadsheet (Ojas PT Tracker) | `19AyjQAWIURrw6Qvos2_gyVGPGb1xdXsnBTHG8TmFJhI` |
 | Service account | `ojas-sheets-sync@ojasfit.iam.gserviceaccount.com` |
-| Key file in kit | `backups/prod-2026-09-07/google-sa.json` |
+| Key file in kit | `backups/prod-2026-09-08/google-sa.json` |
 
 That SA must remain **Editor** on the folder and spreadsheet. Do not create a new Google project unless the operator asks.
 
@@ -112,12 +147,12 @@ Repo should be **private**. Confirm `docs/NEW-ACCOUNT-CUTOVER.md` and `scripts/r
 
 ---
 
-## Step 2 — New Cursor
+## Step 2 — New Cursor or Grok
 
-1. Sign in to the **new** Cursor account.
-2. Clone **NEW-OWNER/NEW-REPO**.
-3. Copy the restore kit into `backups/prod-2026-09-07/` inside that clone.
-4. Open this file (`docs/NEW-ACCOUNT-CUTOVER.md`) and continue from Step 3.
+1. Sign in to the **new** Cursor or Grok account.
+2. Clone **NEW-OWNER/NEW-REPO** (or the current `main` if that is still the code remote).
+3. Copy the restore kit into `backups/prod-2026-09-08/` inside that clone.
+4. Open this file (`docs/NEW-ACCOUNT-CUTOVER.md`) and paste the first-message block above.
 5. `npm install`
 
 ---
@@ -156,7 +191,7 @@ Vercel → Project → Settings → Environment Variables → Production.
 How to one-line the SA JSON in PowerShell (prints only that you should paste into Vercel; do not commit the output):
 
 ```powershell
-(Get-Content -Raw backups\prod-2026-09-07\google-sa.json) -replace '\s+', ' '
+(Get-Content -Raw backups\prod-2026-09-08\google-sa.json) -replace '\s+', ' '
 ```
 
 ### Generate new
@@ -183,7 +218,7 @@ Docker is required for `psql` against Neon 17 (image `postgres:17-alpine`).
 cd <repo-root>
 $env:CONFIRM_RESTORE="YES"
 $env:DATABASE_URL="postgresql://....NEW-NEON..../neondb?sslmode=require"
-npx tsx scripts/restore-prod-snapshot.ts backups/prod-2026-09-07
+npx tsx scripts/restore-prod-snapshot.ts backups/prod-2026-09-08
 ```
 
 The script:
@@ -240,7 +275,7 @@ When that works, give staff the **new** URL. Pause the old Vercel project later.
 | Action | Command |
 |---|---|
 | Refresh kit on the **old** PC | `npx tsx scripts/backup-prod-snapshot.ts` |
-| Restore into **new** Neon | `npx tsx scripts/restore-prod-snapshot.ts backups/prod-2026-09-07` |
+| Restore into **new** Neon | `npx tsx scripts/restore-prod-snapshot.ts backups/prod-2026-09-08` |
 | Local schema | `npx prisma db push` (new URL only) |
 | Do not | `npm run db:seed` |
 
