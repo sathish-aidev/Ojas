@@ -103,6 +103,7 @@ See the [`docs/`](docs/) folder for:
 - [ROADMAP.md](docs/ROADMAP.md)
 - [REVENUE.md](docs/REVENUE.md)
 - [STAGING.md](docs/STAGING.md) — isolated TEST gym for QA
+- [RESTORE.md](docs/RESTORE.md) — move live gym to new GitHub / Vercel / Neon
 
 ## Deployment (Vercel + Neon)
 

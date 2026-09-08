@@ -9,9 +9,13 @@ import { spawnSync } from "node:child_process";
 import { config } from "dotenv";
 import { google } from "googleapis";
 import { envFilePath, parseEnvFile } from "./env-file";
+import { cleanEnv } from "../lib/env";
 
 process.env.ALLOW_PRODUCTION_GOOGLE = "1";
 config({ path: ".env.vercel.production", override: true });
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = cleanEnv(process.env.DATABASE_URL) ?? process.env.DATABASE_URL;
+}
 
 function stamp() {
   const d = new Date();
@@ -21,7 +25,7 @@ function stamp() {
   return `${y}-${m}-${day}`;
 }
 
-async function dumpJson(dir: string) {
+async function dumpJson(dir: string): Promise<Record<string, number>> {
   const { prisma } = await import("../lib/prisma");
   const payload = {
     gym: await prisma.gym.findMany(),
@@ -49,21 +53,115 @@ async function dumpJson(dir: string) {
   };
   fs.writeFileSync(path.join(dir, "database.json"), JSON.stringify(payload, null, 2), "utf8");
   await prisma.$disconnect();
-  console.log(`  JSON tables: ${Object.keys(payload).length} files in database.json`);
+  const counts = Object.fromEntries(
+    Object.entries(payload).map(([name, rows]) => [name, Array.isArray(rows) ? rows.length : 0])
+  ) as Record<string, number>;
+  console.log(`  JSON tables: ${Object.keys(payload).length} in database.json`);
+  return counts;
 }
 
 function tryPgDump(dir: string) {
   const url = process.env.DATABASE_URL;
   if (!url) return;
   const out = path.join(dir, "neon.dump");
-  const result = spawnSync("pg_dump", [url, "--no-owner", "--no-acl", "-f", out], {
+  const native = spawnSync("pg_dump", [url, "--no-owner", "--no-acl", "--no-password", "-f", out], {
     encoding: "utf8",
   });
-  if (result.status === 0) {
+  if (native.status === 0 && fs.existsSync(out) && fs.statSync(out).size > 0) {
     console.log("  pg_dump: neon.dump");
     return;
   }
-  console.log("  pg_dump not available — JSON dump only.");
+
+  const docker = spawnSync(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "-e",
+      `DATABASE_URL=${url}`,
+      "-v",
+      `${dir.replace(/\\/g, "/")}:/backup`,
+      "postgres:17-alpine",
+      "sh",
+      "-c",
+      'pg_dump "$DATABASE_URL" --no-owner --no-acl --no-password -f /backup/neon.dump',
+    ],
+    { encoding: "utf8" }
+  );
+  if (docker.status === 0 && fs.existsSync(out) && fs.statSync(out).size > 0) {
+    console.log("  pg_dump (docker): neon.dump");
+    return;
+  }
+  const err = `${native.stderr || ""} ${docker.stderr || docker.stdout || ""}`.replaceAll(url, "***");
+  console.log("  pg_dump not available — JSON dump only. JSON restore still works.");
+  if (err.trim()) console.log(`  pg_dump detail: ${err.slice(0, 400)}`);
+}
+
+function writeKitFiles(
+  dir: string,
+  counts: Record<string, number>
+) {
+  const prod = parseEnvFile(envFilePath(".env.vercel.production"));
+  const sha = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+  const envKeys = Object.keys(prod)
+    .filter((key) => !key.startsWith("VERCEL_") && !key.startsWith("TURBO_") && key !== "NX_DAEMON")
+    .sort();
+
+  const saRaw = cleanEnv(prod.GOOGLE_SERVICE_ACCOUNT_JSON);
+  if (saRaw) {
+    try {
+      const decoded = saRaw.startsWith("{") ? saRaw : Buffer.from(saRaw, "base64").toString("utf8");
+      const parsed = JSON.parse(decoded) as { client_email?: string };
+      fs.writeFileSync(path.join(dir, "google-sa.json"), `${JSON.stringify(JSON.parse(decoded), null, 2)}\n`);
+      console.log(`  google-sa.json (${parsed.client_email ?? "service account"})`);
+    } catch {
+      console.log("  Could not write google-sa.json — copy GOOGLE_SERVICE_ACCOUNT_JSON from Vercel by hand.");
+    }
+  }
+
+  fs.writeFileSync(
+    path.join(dir, "env-checklist.txt"),
+    [
+      "Copy these names from the OLD Vercel project → New Vercel. Do not commit this folder.",
+      "",
+      "COPY from old project (same Google):",
+      "  GOOGLE_DRIVE_FOLDER_ID",
+      "  GOOGLE_SHEETS_SPREADSHEET_ID",
+      "  GOOGLE_EXPENSES_SPREADSHEET_ID (if set)",
+      "  GOOGLE_BACKUP_SPREADSHEET_ID (if set)",
+      "  GOOGLE_SERVICE_ACCOUNT_JSON  (or use google-sa.json in this folder)",
+      "  OWNER_REPORT_EMAIL",
+      "  NEXT_PUBLIC_APP_NAME=Impackt Fitness",
+      "  APP_ENV=production",
+      "  NEXT_PUBLIC_APP_ENV=production",
+      "",
+      "GENERATE NEW on the new project:",
+      "  DATABASE_URL (new Neon)",
+      "  AUTH_SECRET",
+      "  AUTH_URL (https://YOUR-NEW-APP.vercel.app)",
+      "  CRON_SECRET",
+      "  RESEND_API_KEY / RESEND_FROM_EMAIL (optional, new Resend account)",
+      "",
+      "Keys present in the old Vercel pull (names only):",
+      ...envKeys.map((key) => `  ${key}`),
+      "",
+    ].join("\n")
+  );
+
+  const lines = [
+    `Impackt live-gym restore kit`,
+    `Created: ${new Date().toISOString()}`,
+    `Git commit: ${sha || "(unknown)"}`,
+    `Keep this folder off git. See docs/RESTORE.md`,
+    "",
+    "Table counts:",
+    ...Object.entries(counts).map(([name, n]) => `  ${name}: ${n}`),
+    "",
+    "Files:",
+    ...fs.readdirSync(dir).map((name) => `  ${name}`),
+    "",
+  ];
+  fs.writeFileSync(path.join(dir, "MANIFEST.txt"), `${lines.join("\n")}\n`);
 }
 
 async function copySheet(dir: string) {
@@ -148,13 +246,14 @@ async function main() {
   fs.mkdirSync(dir, { recursive: true });
   console.log(`Writing production snapshot to ${dir}`);
   tryPgDump(dir);
-  await dumpJson(dir);
+  const counts = await dumpJson(dir);
   try {
     await copySheet(dir);
   } catch (err) {
     console.warn("  Google snapshot failed:", err instanceof Error ? err.message : err);
     console.warn("  Database JSON dump is still in this folder.");
   }
+  writeKitFiles(dir, counts);
   console.log("\nProduction snapshot complete. Keep this folder off git.");
 }
 
